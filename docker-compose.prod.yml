@@ -32,7 +32,7 @@ services:
       - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY} # Cargar desde .env real
       - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
       - TRUST_GATEWAY_JWT_HEADERS=true
-      - GATEWAY_TRUST_SECRET=secreto_krakend_seguro_produccion_2026
+      - GATEWAY_TRUST_SECRET=cima-local-gateway-trust-secret-do-not-use-production-2026
     depends_on:
       - postgres_db
       - redis
@@ -61,7 +61,7 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgres://root:rootpassword@postgres_db:5432/crm_database
       - TRUST_GATEWAY_JWT_HEADERS=true
-      - GATEWAY_TRUST_SECRET=secreto_krakend_seguro_produccion_2026
+      - GATEWAY_TRUST_SECRET=cima-local-gateway-trust-secret-do-not-use-production-2026
       - OCI_NAMESPACE=dummy
       - OCI_REGION=dummy
       - OCI_ACCESS_KEY=dummy
@@ -79,7 +79,7 @@ services:
     environment:
       - MOD_AUTH_URL=http://mod-auth:3000
       - MOD_COLLAB_URL=http://mod-collab:3001
-      - GATEWAY_TRUST_SECRET=secreto_krakend_seguro_produccion_2026
+      - GATEWAY_TRUST_SECRET=cima-local-gateway-trust-secret-do-not-use-production-2026
     networks:
       - crm_net
 
