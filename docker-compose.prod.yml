@@ -80,7 +80,7 @@ services:
       - crm_net
 
   api-gateway:
-    image: krakend/krakend:latest
+    image: krakend:latest
     container_name: crm_krakend
     restart: always
     volumes:
