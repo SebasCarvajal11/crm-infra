@@ -43,7 +43,7 @@ services:
     build: ./mod-auth
     container_name: crm_mod_auth_worker
     restart: always
-    command: [ "npx", "tsx", "dist/src/workers/email.worker.js" ]
+    command: [ "npx", "tsx", "src/workers/email.worker.ts" ]
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgres://root:rootpassword@postgres_db:5432/crm_database
