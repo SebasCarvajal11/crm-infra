@@ -1,0 +1,111 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: crm_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: rootpassword # CAMBIAR EN PRODUCCIÓN
+      POSTGRES_DB: crm_database
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    networks:
+      - crm_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: crm_redis
+    restart: always
+    networks:
+      - crm_net
+
+  mod-auth:
+    build: ./mod-auth
+    container_name: crm_mod_auth
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://root:rootpassword@postgres_db:5432/crm_database
+      - REDIS_URL=redis://redis:6379
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY} # Cargar desde .env real
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
+      - TRUST_GATEWAY_JWT_HEADERS=true
+      - GATEWAY_TRUST_SECRET=secreto_krakend_seguro_produccion_2026
+    depends_on:
+      - postgres_db
+      - redis
+    networks:
+      - crm_net
+
+  mod-auth-worker:
+    build: ./mod-auth
+    container_name: crm_mod_auth_worker
+    restart: always
+    command: [ "node", "dist/workers/email.worker.js" ]
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://root:rootpassword@postgres_db:5432/crm_database
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - crm_net
+
+  mod-collab:
+    build: ./mod-collab
+    container_name: crm_mod_collab
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://root:rootpassword@postgres_db:5432/crm_database
+      - TRUST_GATEWAY_JWT_HEADERS=true
+      - GATEWAY_TRUST_SECRET=secreto_krakend_seguro_produccion_2026
+      # Faltan tus variables de Oracle OCI aquí
+    depends_on:
+      - postgres_db
+    networks:
+      - crm_net
+
+  bff-workspace:
+    build: ./bff-workspace
+    container_name: crm_bff
+    restart: always
+    environment:
+      - MOD_AUTH_URL=http://mod-auth:3000
+      - MOD_COLLAB_URL=http://mod-collab:3001
+      - GATEWAY_TRUST_SECRET=secreto_krakend_seguro_produccion_2026
+    networks:
+      - crm_net
+
+  api-gateway:
+    image: krakend/krakend:latest
+    container_name: crm_krakend
+    restart: always
+    volumes:
+      - ./krakend.json:/etc/krakend/krakend.json:ro
+    depends_on:
+      - mod-auth
+      - mod-collab
+      - bff-workspace
+    networks:
+      - crm_net
+
+  frontend:
+    build: ./crm-frontend
+    container_name: crm_frontend
+    restart: always
+    ports:
+      - "80:80" # Expuesto al mundo
+    depends_on:
+      - api-gateway
+    networks:
+      - crm_net
+
+networks:
+  crm_net:
+    driver: bridge
+
+volumes:
+  pgdata_prod:

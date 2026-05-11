@@ -1,0 +1,25 @@
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Compilados
+dist/
+build/
+out/
+.tanstack/
+
+# Variables de entorno y secretos (NUNCA SE SUBEN)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+cookies.jar
+
+# Logs y SO
+logs
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db

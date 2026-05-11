@@ -1,0 +1,53 @@
+{
+  "_comment": "Endpoints BFF — agregacion. /bff/workspace/{id} se implementara como microservicio Node.js.",
+  "endpoints": [
+    {
+      "endpoint": "/bff/dashboard",
+      "method": "GET",
+      "timeout": "3s",
+      "backends": [
+        {
+          "host": "http://mod-auth:3000",
+          "url_pattern": "/auth/me/flat",
+          "allow": [
+            "email",
+            "role",
+            "id",
+            "force_password_change"
+          ],
+          "group": "identity"
+        },
+        {
+          "host": "http://mod-collab:3001",
+          "url_pattern": "/collab/projects?page=1&limit=100",
+          "group": "projects"
+        }
+      ]
+    },
+    {
+      "endpoint": "/bff/admin-overview",
+      "method": "GET",
+      "timeout": "3s",
+      "backends": [
+        {
+          "host": "http://mod-auth:3000",
+          "url_pattern": "/users?page=1&limit=100",
+          "allow": [
+            "id",
+            "email",
+            "role",
+            "is_active",
+            "deleted_at",
+            "force_password_change"
+          ],
+          "group": "users"
+        },
+        {
+          "host": "http://mod-collab:3001",
+          "url_pattern": "/collab/projects?page=1&limit=100",
+          "group": "projects"
+        }
+      ]
+    }
+  ]
+}
