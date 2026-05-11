@@ -34,4 +34,4 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 3002
 
 # Comando para iniciar la aplicación compilada
-CMD["node", "dist/server.js"]
+CMD ["node", "dist/server.js"]
