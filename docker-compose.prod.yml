@@ -62,7 +62,11 @@ services:
       - DATABASE_URL=postgres://root:rootpassword@postgres_db:5432/crm_database
       - TRUST_GATEWAY_JWT_HEADERS=true
       - GATEWAY_TRUST_SECRET=secreto_krakend_seguro_produccion_2026
-      # Faltan tus variables de Oracle OCI aquí
+      - OCI_NAMESPACE=dummy
+      - OCI_REGION=dummy
+      - OCI_ACCESS_KEY=dummy
+      - OCI_SECRET_KEY=dummy
+      - OCI_BUCKET=dummy
     depends_on:
       - postgres_db
     networks:
