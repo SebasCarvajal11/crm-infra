@@ -1800,6 +1800,81 @@
       ]
     },
     {
+      "endpoint": "/projects/{projectId}/board",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3001"
+          ],
+          "url_pattern": "/collab/projects/{projectId}/board",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-projects--projectId--board"
+            }
+          }
+        }
+      ]
+    },
+    {
       "endpoint": "/projects/{projectId}/workspace",
       "method": "GET",
       "output_encoding": "no-op",

@@ -1,177 +1,160 @@
-## start-project.ps1
-# =========================================================
-# CIMA CRM - Arranque local (Windows)
-# Levanta:
-#   - Docker (Postgres, Redis, KrakenD)
-#   - mod-auth
-#   - crm-frontend
-#
-# Uso:
-#   .\start-project.ps1
-#   o doble clic en start-project.cmd
-# =========================================================
-
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
 
-function Write-Step($msg) {
-    Write-Host ""
-    Write-Host "==> $msg" -ForegroundColor Cyan
+function Write-Step([string]$Message) {
+  Write-Host ""
+  Write-Host "==> $Message" -ForegroundColor Cyan
 }
 
-function Test-Command($command, $message) {
-    if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
-        Write-Host ""
-        Write-Host "ERROR: $message" -ForegroundColor Red
-        exit 1
-    }
+function Assert-Command([string]$Name, [string]$ErrorMessage) {
+  if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+    Write-Host "" 
+    Write-Host "ERROR: $ErrorMessage" -ForegroundColor Red
+    exit 1
+  }
 }
 
-function Start-NpmProject($path, $command, $name) {
+function Start-ProjectProcess([string]$Path, [string]$Command, [string]$Name) {
+  if (-not (Test-Path $Path)) {
+    Write-Host "Advertencia: carpeta no encontrada -> $Path" -ForegroundColor Yellow
+    return
+  }
 
-    if (-not (Test-Path $path)) {
-        Write-Host "Advertencia: carpeta no encontrada -> $path" -ForegroundColor Yellow
-        return
-    }
+  if (-not (Test-Path (Join-Path $Path 'package.json'))) {
+    Write-Host "Advertencia: package.json no encontrado en -> $Path" -ForegroundColor Yellow
+    return
+  }
 
-    if (-not (Test-Path (Join-Path $path 'package.json'))) {
-        Write-Host "Advertencia: package.json no encontrado en $path" -ForegroundColor Yellow
-        return
-    }
+  Write-Step "Abriendo $Name ($Command)"
 
-    Write-Step "Abriendo $name ($command)..."
-
-    Start-Process powershell.exe `
-        -WorkingDirectory $path `
-        -ArgumentList '-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', $command
+  Start-Process powershell.exe `
+    -WorkingDirectory $Path `
+    -ArgumentList '-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', $Command
 }
 
-# =========================================================
-# Inicio
-# =========================================================
+function Test-ServiceHealthy([string]$Url) {
+  try {
+    $res = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2
+    return ($res.StatusCode -ge 200 -and $res.StatusCode -lt 300)
+  } catch {
+    return $false
+  }
+}
+
+function Prepare-PnpmProject([string]$Path, [string]$Name) {
+  if (-not (Test-Path $Path)) { return }
+  if (-not (Test-Path (Join-Path $Path 'package.json'))) { return }
+
+  Write-Step "Preparando dependencias de $Name (pnpm approve-builds --all)"
+  Push-Location $Path
+  try {
+    pnpm approve-builds --all | Out-Null
+  } catch {
+    Write-Host "Advertencia: no se pudo aprobar builds en $Name. Se intentara arrancar igual." -ForegroundColor Yellow
+  } finally {
+    Pop-Location
+  }
+}
+
+function Test-HttpEndpoint([string]$Url, [int]$Attempts = 20, [int]$DelaySeconds = 2) {
+  for ($i = 0; $i -lt $Attempts; $i++) {
+    try {
+      $res = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
+      if ($res.StatusCode -ge 200 -and $res.StatusCode -lt 500) {
+        return $true
+      }
+    } catch {
+      Start-Sleep -Seconds $DelaySeconds
+      continue
+    }
+    Start-Sleep -Seconds $DelaySeconds
+  }
+  return $false
+}
 
 Write-Host ""
-Write-Host "CIMA CRM � arranque local (Windows)" -ForegroundColor Green
+Write-Host "CIMA CRM - arranque local (Windows)" -ForegroundColor Green
 
-# =========================================================
-# Validaciones
-# =========================================================
+Write-Step "Validando herramientas instaladas"
+Assert-Command 'node' 'Node.js no esta instalado o no esta en PATH.'
+Assert-Command 'pnpm' 'pnpm no esta instalado o no esta en PATH.'
+Assert-Command 'docker' 'Docker no esta instalado o no esta en PATH.'
 
-Write-Step "Validando herramientas instaladas..."
-
-Test-Command "node" "Node.js no est� instalado o no est� en PATH."
-Test-Command "npm" "npm no est� instalado o no est� en PATH."
-Test-Command "docker" "Docker no est� instalado o no est� en PATH."
-
-# =========================================================
-# Generar krakend.json
-# =========================================================
+Write-Step "Validando Docker Desktop"
+docker info > $null 2>&1
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "ERROR: Docker no responde. Abre Docker Desktop y vuelve a intentar." -ForegroundColor Red
+  exit 1
+}
 
 $buildScript = Join-Path $Root 'gateway\build-krakend.mjs'
-
 if (Test-Path $buildScript) {
-
-    Write-Step "Generando krakend.json desde templates..."
-
-    try {
-        node $buildScript
-    }
-    catch {
-        Write-Host "Advertencia: no se pudo ejecutar build-krakend.mjs." -ForegroundColor Yellow
-        Write-Host "Se usar� el krakend.json existente." -ForegroundColor Yellow
-    }
+  Write-Step "Generando krakend.json desde templates"
+  try {
+    node $buildScript
+  } catch {
+    Write-Host "Advertencia: no se pudo ejecutar build-krakend.mjs. Se usara el krakend.json existente." -ForegroundColor Yellow
+  }
 }
 
-# =========================================================
-# Docker Compose
-# =========================================================
-
-Write-Step "Levantando contenedores Docker..."
-
+Write-Step "Levantando contenedores Docker"
 $composeFile = Join-Path $Root 'docker-compose.yml'
-
 if (-not (Test-Path $composeFile)) {
-    Write-Host "ERROR: No se encontr� docker-compose.yml en:" -ForegroundColor Red
-    Write-Host $Root -ForegroundColor Yellow
-    exit 1
+  Write-Host "ERROR: No se encontro docker-compose.yml en $Root" -ForegroundColor Red
+  exit 1
 }
 
-try {
-
-    docker compose -f $composeFile up -d
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Docker Compose fall�."
-    }
-
-}
-catch {
-    Write-Host ""
-    Write-Host "ERROR al iniciar Docker Compose." -ForegroundColor Red
-    Write-Host "Verifica que Docker Desktop est� abierto." -ForegroundColor Yellow
-    throw
+docker compose -f $composeFile up -d
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "ERROR: Docker Compose fallo." -ForegroundColor Red
+  exit 1
 }
 
-# =========================================================
-# Esperar Docker
-# =========================================================
+Write-Step "Reiniciando api-gateway para recargar krakend.json"
+docker compose -f $composeFile restart api-gateway | Out-Null
 
-Write-Step "Esperando a que Docker responda..."
-
-$dockerReady = $false
-
-for ($i = 0; $i -lt 15; $i++) {
-
-    docker ps > $null 2>&1
-
-    if ($LASTEXITCODE -eq 0) {
-        $dockerReady = $true
-        break
-    }
-
-    Start-Sleep -Seconds 2
+Write-Step "Esperando gateway (http://localhost:8080/health)"
+if (-not (Test-HttpEndpoint -Url 'http://localhost:8080/health' -Attempts 30 -DelaySeconds 2)) {
+  Write-Host "Advertencia: gateway aun no responde en /health. Continuando con servicios locales." -ForegroundColor Yellow
 }
-
-if (-not $dockerReady) {
-    Write-Host "Docker no respondi� a tiempo." -ForegroundColor Yellow
-}
-
-# =========================================================
-# mod-auth
-# =========================================================
 
 $modAuth = Join-Path $Root 'mod-auth'
-
-Start-NpmProject `
-    -path $modAuth `
-    -command 'npm start' `
-    -name 'mod-auth'
-
-Start-Sleep -Seconds 1
-
-# =========================================================
-# Frontend
-# =========================================================
-
+$modCollab = Join-Path $Root 'mod-collab'
 $frontend = Join-Path $Root 'crm-frontend'
 
-Start-NpmProject `
-    -path $frontend `
-    -command 'npm run dev' `
-    -name 'crm-frontend'
+Prepare-PnpmProject -Path $modAuth -Name 'mod-auth'
+Prepare-PnpmProject -Path $modCollab -Name 'mod-collab'
+Prepare-PnpmProject -Path $frontend -Name 'crm-frontend'
 
-# =========================================================
-# Final
-# =========================================================
+if (Test-ServiceHealthy -Url 'http://localhost:3000/health') {
+  Write-Host "mod-auth ya esta activo en :3000. Se omite segunda instancia." -ForegroundColor Yellow
+} else {
+  Start-ProjectProcess -Path $modAuth -Command 'pnpm dev' -Name 'mod-auth'
+  Start-Sleep -Seconds 1
+}
+
+if (Test-ServiceHealthy -Url 'http://localhost:3001/health') {
+  Write-Host "mod-collab ya esta activo en :3001. Se omite segunda instancia." -ForegroundColor Yellow
+} else {
+  Start-ProjectProcess -Path $modCollab -Command 'pnpm dev' -Name 'mod-collab'
+  Start-Sleep -Seconds 1
+}
+
+if (Test-ServiceHealthy -Url 'http://localhost:5173') {
+  Write-Host "crm-frontend ya esta activo en :5173. Se omite segunda instancia." -ForegroundColor Yellow
+} else {
+  Start-ProjectProcess -Path $frontend -Command 'pnpm dev' -Name 'crm-frontend'
+}
 
 Write-Host ""
 Write-Host "=========================================" -ForegroundColor DarkGray
 Write-Host "Listo." -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "API Gateway:    http://localhost:8080/health" -ForegroundColor Gray
-Write-Host "mod-auth:       http://localhost:3000" -ForegroundColor Gray
-Write-Host "Frontend:       http://localhost:5173" -ForegroundColor Gray
+Write-Host "Gateway:         http://localhost:8080/health" -ForegroundColor Gray
+Write-Host "mod-auth:        http://localhost:3000" -ForegroundColor Gray
+Write-Host "mod-collab:      http://localhost:3001/health" -ForegroundColor Gray
+Write-Host "Frontend:        http://localhost:5173" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Cierra las ventanas de PowerShell para detener los servicios." -ForegroundColor DarkGray
 Write-Host ""

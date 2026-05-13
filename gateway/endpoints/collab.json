@@ -27,6 +27,11 @@
       "backend_url": "/collab/projects/{projectId}"
     },
     {
+      "endpoint": "/projects/{projectId}/board",
+      "method": "GET",
+      "backend_url": "/collab/projects/{projectId}/board"
+    },
+    {
       "endpoint": "/projects/{projectId}/workspace",
       "method": "GET",
       "backend_url": "/collab/projects/{projectId}/workspace"
