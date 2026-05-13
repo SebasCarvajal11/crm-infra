@@ -114,6 +114,21 @@
       "backend_url": "/collab/projects/{projectId}/chat/external/read"
     },
     {
+      "endpoint": "/notifications/chat-mentions/unread",
+      "method": "GET",
+      "backend_url": "/collab/notifications/chat-mentions/unread"
+    },
+    {
+      "endpoint": "/notifications/chat-mentions/unread/count",
+      "method": "GET",
+      "backend_url": "/collab/notifications/chat-mentions/unread/count"
+    },
+    {
+      "endpoint": "/notifications/chat-mentions/{notificationId}/read",
+      "method": "PATCH",
+      "backend_url": "/collab/notifications/chat-mentions/{notificationId}/read"
+    },
+    {
       "endpoint": "/projects/{projectId}/change-requests/minor",
       "method": "POST",
       "backend_url": "/collab/projects/{projectId}/change-requests/minor"
