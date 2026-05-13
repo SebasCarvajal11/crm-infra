@@ -14,7 +14,8 @@
     {
       "endpoint": "/openapi.yaml",
       "method": "GET",
-      "backend_url": "/openapi.yaml"
+      "backend_url": "/openapi.yaml",
+      "static_file": true
     },
     {
       "endpoint": "/docs",

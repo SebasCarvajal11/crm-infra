@@ -14,8 +14,7 @@
         "status",
         "progressPercent",
         "unreadNotifications"
-      ],
-      "cache_ttl": "60s"
+      ]
     },
     {
       "endpoint": "/projects",
@@ -45,8 +44,7 @@
     {
       "endpoint": "/projects/{projectId}/columns",
       "method": "GET",
-      "backend_url": "/collab/projects/{projectId}/columns",
-      "cache_ttl": "300s"
+      "backend_url": "/collab/projects/{projectId}/columns"
     },
     {
       "endpoint": "/projects/{projectId}/columns",
@@ -96,6 +94,11 @@
       "backend_url": "/collab/projects/{projectId}/chat/internal"
     },
     {
+      "endpoint": "/projects/{projectId}/chat/internal/read",
+      "method": "POST",
+      "backend_url": "/collab/projects/{projectId}/chat/internal/read"
+    },
+    {
       "endpoint": "/projects/{projectId}/chat/external",
       "method": "GET",
       "backend_url": "/collab/projects/{projectId}/chat/external"
@@ -104,6 +107,11 @@
       "endpoint": "/projects/{projectId}/chat/external",
       "method": "POST",
       "backend_url": "/collab/projects/{projectId}/chat/external"
+    },
+    {
+      "endpoint": "/projects/{projectId}/chat/external/read",
+      "method": "POST",
+      "backend_url": "/collab/projects/{projectId}/chat/external/read"
     },
     {
       "endpoint": "/projects/{projectId}/change-requests/minor",
@@ -136,6 +144,16 @@
       "backend_url": "/collab/projects/{projectId}/files"
     },
     {
+      "endpoint": "/projects/{projectId}/files/timeline",
+      "method": "GET",
+      "backend_url": "/collab/projects/{projectId}/files/timeline"
+    },
+    {
+      "endpoint": "/projects/{projectId}/files/upload",
+      "method": "POST",
+      "backend_url": "/collab/projects/{projectId}/files/upload"
+    },
+    {
       "endpoint": "/files/{fileId}/approve",
       "method": "PATCH",
       "backend_url": "/collab/files/{fileId}/approve"
@@ -146,6 +164,16 @@
       "backend_url": "/collab/files/{fileId}/download"
     },
     {
+      "endpoint": "/files/{fileId}",
+      "method": "DELETE",
+      "backend_url": "/collab/files/{fileId}"
+    },
+    {
+      "endpoint": "/files/{fileId}",
+      "method": "PATCH",
+      "backend_url": "/collab/files/{fileId}"
+    },
+    {
       "endpoint": "/projects/{projectId}/tasks/{taskId}/comments",
       "method": "GET",
       "backend_url": "/collab/projects/{projectId}/tasks/{taskId}/comments"
@@ -168,8 +196,7 @@
     {
       "endpoint": "/projects/{projectId}/brief",
       "method": "GET",
-      "backend_url": "/collab/projects/{projectId}/brief",
-      "cache_ttl": "120s"
+      "backend_url": "/collab/projects/{projectId}/brief"
     },
     {
       "endpoint": "/projects/{projectId}/brief",
@@ -179,8 +206,7 @@
     {
       "endpoint": "/bff/workspace/{projectId}",
       "method": "GET",
-      "host": "http://bff-workspace:3002",
-      "backend_url": "/bff/workspace/{projectId}"
+      "backend_url": "/collab/projects/{projectId}/workspace"
     }
   ]
 }

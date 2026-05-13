@@ -110,20 +110,3 @@ docker exec crm_postgres_db psql -U root -d crm_database -c "TRUNCATE schema_col
 cd mod-auth && npm run db:seed
 cd mod-collab && npm run db:seed
 ```
-
-## Proyectos de Prueba Disponibles
-
-| Proyecto | Cliente | Tipo | Estado |
-|----------|---------|------|--------|
-| Campaña de Verano 2026 | Restaurante El Buen Sabor | Campaña | En progreso (65%) |
-| Merchandising Corporativo Tech | Tecnologías Avanzadas S.A. | Producto | En progreso (45%) |
-| Rebranding Moda Bella 2026 | Moda Bella Boutique | Campaña | Completado (100%) |
-| Web App Constructora | Constructora Sólida | Campaña | En revisión (85%) |
-| Campaña Salud Preventiva | Clínica Salud 360 | Campaña | En progreso (40%) |
-| Identidad Visual Gym Power | Gimnasio Power Fitness | Campaña | En progreso (55%) |
-| Menú y Packaging Aroma | Cafetería Aroma | Producto | Por hacer (0%) |
-| Campaña Lanzamiento SUV 2027 | Automotriz Rápido | Campaña | En progreso (30%) |
-| Portal Educativo Online | Academia Éxito | Campaña | En progreso (70%) |
-| Catálogo Navidad 2026 | Joyería Plata & Oro | Campaña | En revisión (90%) |
-| Señalización Hotel Paraíso | Hotel Paraíso | Producto | En progreso (50%) |
-| Tienda Online Deportes | Deportes Extreme | Campaña | Por hacer (0%) |

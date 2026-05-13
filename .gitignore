@@ -23,3 +23,10 @@ logs
 npm-debug.log*
 .DS_Store
 Thumbs.db
+
+# Scripts de prueba/depuracion
+test-*.js
+ssh-key-2026-05-11.key
+
+# Artefactos generados
+gateway/output/openapi.yaml

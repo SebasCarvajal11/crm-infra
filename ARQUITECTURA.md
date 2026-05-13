@@ -37,13 +37,13 @@ El SPA debe usar rutas **sin** prefijo `/api`: por ejemplo `POST /auth/login`, n
 | Función | Implementación actual |
 | --- | --- |
 | **Topology Hiding** | El frontend NO conoce los nombres de los microservicios. URLs como `/identity/me`, `/projects`, `/admin/users` ocultan que detrás hay `mod-auth` y `mod-collab`. |
-| **Proxy** | Reenvía cada ruta al backend correspondiente (`mod-auth` en `:3000`, `mod-collab` en `:3001`, `bff-workspace` en `:3002`). |
+| **Proxy** | Reenvía cada ruta al backend correspondiente (`mod-auth` en `:3000`, `mod-collab` en `:3001`). |
 | **Cabeceras al backend** | En **todos** los endpoints, `input_headers` incluye además de las del contrato (`Authorization`, `Cookie`, etc.) las cabeceras **`X-Forwarded-For`**, **`X-Real-IP`** y **`User-Agent`**. Si faltan, KrakenD las filtra y los backends ven IP `"unknown"`, rompiendo la auditoría. |
 | **Rate Limiting** | Endpoints públicos sensibles (`/auth/login`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/accept-invite`, `/auth/verify-email`) protegidos con `qos/ratelimit/router` por IP. Lockout por cuenta (8 intentos → 30min) implementado en `mod-auth`. |
 | **Circuit Breaker** | Cada backend tiene `qos/circuit-breaker` (3 errores en 60s → circuito abierto 10s). Si un microservicio cae, el gateway devuelve error inmediato sin esperar timeout. |
 | **Response Filtering** | Endpoints de listado usan `allow` lists para enviar solo los campos que el frontend necesita. Ej: `GET /projects` devuelve 7 campos de 15 posibles. |
 | **Edge Caching** | Endpoints de lectura con datos casi estáticos (`/projects/{id}/columns`, `/projects/{id}/brief`, `GET /projects`) tienen `qos/http-cache` con Cache-Control override. |
-| **BFF (Backend For Frontend)** | `/bff/dashboard` agrega identidad + proyectos en una sola respuesta. `/bff/admin-overview` agrega usuarios + proyectos. `/bff/workspace/{id}` es un microservicio Node.js que cruza datos de mod-collab + mod-auth. |
+| **BFF (Backend For Frontend)** | `/bff/dashboard` agrega identidad + proyectos en una sola respuesta. `/bff/admin-overview` agrega usuarios + proyectos. `/bff/workspace/{id}` enriquece el workspace de mod-collab con perfiles de mod-auth (enriquecimiento interno). |
 | **Validación JWT** | Rutas públicas (login, refresh, recuperación de contraseña, invitación, etc.) **no** validan en el gateway. Rutas que en los backends exigen `Authorization: Bearer` llevan `auth/validator` con JWKS (`RS256`, `kid`) desde `/.well-known/jwks.json`. |
 | **Claims → cabeceras** | Tras validar, el gateway propaga `sub`, `userId`, `role`, `email` y `exp` como `X-User-*` y `X-Token-Exp`. Cada backend incluye Martian con **`X-Gateway-Trust`** (secreto compartido con `mod-auth`). |
 | **Doble JWT (opcional)** | Por defecto `mod-auth` **vuelve a verificar** el Bearer con RS256. Para evitar esa segunda verificación criptográfica, activar en `mod-auth` `TRUST_GATEWAY_JWT_HEADERS=true` y el mismo **`GATEWAY_TRUST_SECRET`** que el valor Martian en `krakend.json` (regenerar JSON con `node scripts/patch-krakend-gateway-trust.mjs` si cambias el secreto). Sin ese modo, el coste doble es aceptable como defensa en profundidad. |
@@ -55,8 +55,7 @@ El SPA debe usar rutas **sin** prefijo `/api`: por ejemplo `POST /auth/login`, n
 
 1. Postgres y Redis: `docker compose up -d postgres_db redis`
 2. `mod-auth`: en la carpeta del modulo, `npm start` (puerto **3000**).
-3. `bff-workspace`: en la carpeta del modulo, `npm start` (puerto **3002**).
-4. Gateway: `docker compose up -d api-gateway` (puerto **8080**).
+3. Gateway: `docker compose up -d api-gateway` (puerto **8080**).
 
 El script `start-project.ps1` ejecuta estos pasos automaticamente (incluye `node gateway/build-krakend.mjs` para regenerar la config del gateway).
 

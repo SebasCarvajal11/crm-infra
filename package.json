@@ -1,0 +1,23 @@
+{
+  "name": "cima-crm-proyecto-de-grado",
+  "version": "1.0.0",
+  "description": "",
+  "main": "test-bff.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SebasCarvajal11/crm-cima.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SebasCarvajal11/crm-cima/issues"
+  },
+  "homepage": "https://github.com/SebasCarvajal11/crm-cima#readme",
+  "dependencies": {
+    "yaml": "^2.9.0"
+  }
+}

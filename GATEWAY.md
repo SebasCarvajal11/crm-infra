@@ -31,7 +31,7 @@ auth collab workspace
 | `/tasks/*` | mod-collab | `/tasks/{taskId}` |
 | `/columns/*` | mod-collab | `/columns/{columnId}` |
 | `/files/*` | mod-collab | `/files/{fileId}/download`, `/files/{fileId}/approve` |
-| `/bff/*` | KrakenD (agregación) + bff-workspace | `/bff/dashboard`, `/bff/workspace/{id}` |
+| `/bff/*` | KrakenD (agregación nativa) + mod-collab | `/bff/dashboard`, `/bff/workspace/{id}` |
 
 ---
 
@@ -240,9 +240,6 @@ cd mod-auth && npx tsc --noEmit
 # Verificar TypeScript (frontend)
 cd crm-frontend && npx tsc --noEmit
 
-# Verificar TypeScript (bff-workspace)
-cd bff-workspace && npx tsc --noEmit
-
 # Validar krakend.json como JSON
 node -e "JSON.parse(require('fs').readFileSync('krakend.json','utf8'))"
 
@@ -281,4 +278,3 @@ Cada endpoint en los JSONs de `gateway/endpoints/` soporta estos campos:
 | `docker-compose.yml` | Orquestación (Postgres, Redis, KrakenD) |
 | `start-project.ps1` | Arranque local automático |
 | `ARQUITECTURA.md` | Documentación de arquitectura general |
-| `bff-workspace/src/server.ts` | Microservicio BFF para workspace enriquecido |

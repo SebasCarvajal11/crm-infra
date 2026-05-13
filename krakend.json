@@ -124,27 +124,11 @@
       ],
       "backend": [
         {
-          "host": [
-            "http://mod-auth:3000"
-          ],
           "url_pattern": "/openapi.yaml",
           "encoding": "no-op",
           "extra_config": {
-            "modifier/martian": {
-              "header.Modifier": {
-                "scope": [
-                  "request"
-                ],
-                "name": "X-Gateway-Trust",
-                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
-              }
-            },
-            "qos/circuit-breaker": {
-              "interval": 60,
-              "timeout": 10,
-              "max_errors": 3,
-              "log_status_change": true,
-              "name": "cb--openapi-yaml"
+            "proxy/static-filesystem": {
+              "dir": "/etc/krakend/static"
             }
           }
         }
@@ -1649,16 +1633,6 @@
               "max_errors": 3,
               "log_status_change": true,
               "name": "cb--collab-projects"
-            },
-            "qos/http-cache": {},
-            "modifier/response-headers": {
-              "header.Modifier": {
-                "scope": [
-                  "response"
-                ],
-                "name": "Cache-Control",
-                "value": "max-age=60, public"
-              }
             }
           },
           "allow": [
@@ -2121,16 +2095,6 @@
               "max_errors": 3,
               "log_status_change": true,
               "name": "cb--collab-projects--projectId--columns"
-            },
-            "qos/http-cache": {},
-            "modifier/response-headers": {
-              "header.Modifier": {
-                "scope": [
-                  "response"
-                ],
-                "name": "Cache-Control",
-                "value": "max-age=300, public"
-              }
             }
           }
         }
@@ -2679,6 +2643,82 @@
       ]
     },
     {
+      "endpoint": "/projects/{projectId}/chat/internal/read",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://mod-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://mod-collab:3001"
+          ],
+          "url_pattern": "/collab/projects/{projectId}/chat/internal/read",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-projects--projectId--chat-internal-read"
+            }
+          }
+        }
+      ]
+    },
+    {
       "endpoint": "/projects/{projectId}/chat/external",
       "method": "GET",
       "output_encoding": "no-op",
@@ -2824,6 +2864,82 @@
               "max_errors": 3,
               "log_status_change": true,
               "name": "cb--collab-projects--projectId--chat-external"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/projects/{projectId}/chat/external/read",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://mod-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://mod-collab:3001"
+          ],
+          "url_pattern": "/collab/projects/{projectId}/chat/external/read",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-projects--projectId--chat-external-read"
             }
           }
         }
@@ -3284,6 +3400,157 @@
       ]
     },
     {
+      "endpoint": "/projects/{projectId}/files/timeline",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://mod-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://mod-collab:3001"
+          ],
+          "url_pattern": "/collab/projects/{projectId}/files/timeline",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-projects--projectId--files-timeline"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/projects/{projectId}/files/upload",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://mod-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://mod-collab:3001"
+          ],
+          "url_pattern": "/collab/projects/{projectId}/files/upload",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-projects--projectId--files-upload"
+            }
+          }
+        }
+      ]
+    },
+    {
       "endpoint": "/files/{fileId}/approve",
       "method": "PATCH",
       "output_encoding": "no-op",
@@ -3435,6 +3702,157 @@
       ]
     },
     {
+      "endpoint": "/files/{fileId}",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://mod-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://mod-collab:3001"
+          ],
+          "url_pattern": "/collab/files/{fileId}",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-files--fileId-"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/files/{fileId}",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://mod-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://mod-collab:3001"
+          ],
+          "url_pattern": "/collab/files/{fileId}",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-files--fileId-"
+            }
+          }
+        }
+      ]
+    },
+    {
       "endpoint": "/projects/{projectId}/tasks/{taskId}/comments",
       "method": "GET",
       "output_encoding": "no-op",
@@ -3806,16 +4224,6 @@
               "max_errors": 3,
               "log_status_change": true,
               "name": "cb--collab-projects--projectId--brief"
-            },
-            "qos/http-cache": {},
-            "modifier/response-headers": {
-              "header.Modifier": {
-                "scope": [
-                  "response"
-                ],
-                "name": "Cache-Control",
-                "value": "max-age=120, public"
-              }
             }
           }
         }
@@ -3947,9 +4355,9 @@
       "backend": [
         {
           "host": [
-            "http://bff-workspace:3002"
+            "http://mod-collab:3001"
           ],
-          "url_pattern": "/bff/workspace/{projectId}",
+          "url_pattern": "/collab/projects/{projectId}/workspace",
           "encoding": "no-op",
           "extra_config": {
             "modifier/martian": {
@@ -3966,7 +4374,7 @@
               "timeout": 10,
               "max_errors": 3,
               "log_status_change": true,
-              "name": "cb--bff-workspace--projectId-"
+              "name": "cb--collab-projects--projectId--workspace"
             }
           }
         }
@@ -4057,7 +4465,7 @@
           "host": [
             "http://mod-collab:3001"
           ],
-          "url_pattern": "/collab/projects?page=1&limit=100",
+          "url_pattern": "/collab/projects?page={req_query_page}&limit={req_query_limit}",
           "encoding": "json",
           "extra_config": {
             "modifier/martian": {
@@ -4074,11 +4482,15 @@
               "timeout": 10,
               "max_errors": 3,
               "log_status_change": true,
-              "name": "cb-bff--collab-projects-page-1-limit-100"
+              "name": "cb-bff--collab-projects-page--req-query-page--l"
             }
           },
           "group": "projects"
         }
+      ],
+      "input_query_strings": [
+        "page",
+        "limit"
       ]
     },
     {
@@ -4134,7 +4546,7 @@
           "host": [
             "http://mod-auth:3000"
           ],
-          "url_pattern": "/users?page=1&limit=100",
+          "url_pattern": "/users?page={req_query_page}&limit={req_query_limit}",
           "encoding": "json",
           "extra_config": {
             "modifier/martian": {
@@ -4151,7 +4563,7 @@
               "timeout": 10,
               "max_errors": 3,
               "log_status_change": true,
-              "name": "cb-bff--users-page-1-limit-100"
+              "name": "cb-bff--users-page--req-query-page--limit--req-"
             }
           },
           "allow": [
@@ -4168,7 +4580,7 @@
           "host": [
             "http://mod-collab:3001"
           ],
-          "url_pattern": "/collab/projects?page=1&limit=100",
+          "url_pattern": "/collab/projects?page={req_query_page}&limit={req_query_limit}",
           "encoding": "json",
           "extra_config": {
             "modifier/martian": {
@@ -4185,11 +4597,15 @@
               "timeout": 10,
               "max_errors": 3,
               "log_status_change": true,
-              "name": "cb-bff--collab-projects-page-1-limit-100"
+              "name": "cb-bff--collab-projects-page--req-query-page--l"
             }
           },
           "group": "projects"
         }
+      ],
+      "input_query_strings": [
+        "page",
+        "limit"
       ]
     }
   ]

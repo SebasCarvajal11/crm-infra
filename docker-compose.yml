@@ -40,6 +40,7 @@ services:
       - "8080:8080"
     volumes:
       - ./krakend.json:/etc/krakend/krakend.json:ro
+      - ./gateway/output:/etc/krakend/static:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

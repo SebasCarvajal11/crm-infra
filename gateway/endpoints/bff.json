@@ -1,10 +1,11 @@
 {
-  "_comment": "Endpoints BFF — agregacion. /bff/workspace/{id} se implementara como microservicio Node.js.",
+  "_comment": "Endpoints BFF — agregacion nativa de KrakenD (multi-backend paralelo).",
   "endpoints": [
     {
       "endpoint": "/bff/dashboard",
       "method": "GET",
       "timeout": "3s",
+      "input_query_strings": ["page", "limit"],
       "backends": [
         {
           "host": "http://mod-auth:3000",
@@ -19,7 +20,7 @@
         },
         {
           "host": "http://mod-collab:3001",
-          "url_pattern": "/collab/projects?page=1&limit=100",
+          "url_pattern": "/collab/projects?page={req_query_page}&limit={req_query_limit}",
           "group": "projects"
         }
       ]
@@ -28,10 +29,11 @@
       "endpoint": "/bff/admin-overview",
       "method": "GET",
       "timeout": "3s",
+      "input_query_strings": ["page", "limit"],
       "backends": [
         {
           "host": "http://mod-auth:3000",
-          "url_pattern": "/users?page=1&limit=100",
+          "url_pattern": "/users?page={req_query_page}&limit={req_query_limit}",
           "allow": [
             "id",
             "email",
@@ -44,7 +46,7 @@
         },
         {
           "host": "http://mod-collab:3001",
-          "url_pattern": "/collab/projects?page=1&limit=100",
+          "url_pattern": "/collab/projects?page={req_query_page}&limit={req_query_limit}",
           "group": "projects"
         }
       ]

@@ -19,6 +19,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -30,6 +31,10 @@ const GATEWAY_TRUST_SECRET =
 
 const AUTH_HOST = "http://mod-auth:3000";
 const COLLAB_HOST = "http://mod-auth:3001";
+
+const AUTH_OPENAPI = resolve(__dirname, "..", "mod-auth", "openapi", "openapi.yaml");
+const COLLAB_OPENAPI = resolve(__dirname, "..", "mod-collab", "openapi", "openapi.yaml");
+const OPENAPI_OUTPUT = resolve(__dirname, "output", "openapi.yaml");
 
 // ── Templates ──────────────────────────────────────────────────────────────────
 
@@ -146,12 +151,27 @@ function buildPublicEndpoint(def) {
     }
   }
 
+  let backend;
+  if (def.static_file) {
+    backend = {
+      url_pattern: def.backend_url || def.endpoint,
+      encoding: "no-op",
+      extra_config: {
+        "proxy/static-filesystem": {
+          dir: "/etc/krakend/static",
+        },
+      },
+    };
+  } else {
+    backend = buildBackend(AUTH_HOST, def.backend_url || def.endpoint);
+  }
+
   const endpoint = {
     endpoint: def.endpoint,
     method: def.method,
     output_encoding: "no-op",
     input_headers: headers,
-    backend: [buildBackend(AUTH_HOST, def.backend_url || def.endpoint)],
+    backend: [backend],
   };
 
   if (def.rate_limit) {
@@ -216,7 +236,7 @@ function buildBffEndpoint(def) {
     return backend;
   });
 
-  return {
+  const endpoint = {
     endpoint: def.endpoint,
     method: def.method || "GET",
     timeout: def.timeout || "3s",
@@ -225,6 +245,12 @@ function buildBffEndpoint(def) {
     input_headers: headers,
     backend: backends,
   };
+
+  if (def.input_query_strings) {
+    endpoint.input_query_strings = def.input_query_strings;
+  }
+
+  return endpoint;
 }
 
 // ── Loader ─────────────────────────────────────────────────────────────────────
@@ -233,6 +259,104 @@ const AUTH_HEADERS_WITH_BODY = ["Content-Type", ...AUTH_HEADERS_BASE];
 
 function loadEndpoints(filename) {
   return JSON.parse(readFileSync(resolve(ENDPOINTS_DIR, filename), "utf-8"));
+}
+
+// ── OpenAPI Consolidado ────────────────────────────────────────────────────────
+
+function buildRouteMap(endpointsDef) {
+  const map = new Map();
+  for (const def of endpointsDef) {
+    const publicPath = def.endpoint;
+    const backendUrl = def.backend_url || def.endpoint;
+    if (publicPath !== backendUrl) {
+      map.set(backendUrl, publicPath);
+    }
+  }
+  return map;
+}
+
+function remapCollabPaths(collabPaths, routeMap) {
+  const remapped = {};
+  for (const [internalPath, pathItem] of Object.entries(collabPaths)) {
+    const publicPath = routeMap.get(internalPath) || internalPath;
+    remapped[publicPath] = pathItem;
+  }
+  return remapped;
+}
+
+function generateOpenAPI() {
+  const authSpec = parseYaml(readFileSync(AUTH_OPENAPI, "utf-8"));
+  const collabSpec = parseYaml(readFileSync(COLLAB_OPENAPI, "utf-8"));
+
+  const collabDef = loadEndpoints("collab.json");
+  const routeMap = buildRouteMap(collabDef.endpoints);
+
+  const authPaths = { ...authSpec.paths };
+  const collabPaths = remapCollabPaths(collabSpec.paths, routeMap);
+
+  const mergedPaths = { ...authPaths, ...collabPaths };
+
+  const mergedSchemas = {
+    ...(authSpec.components?.schemas || {}),
+    ...(collabSpec.components?.schemas || {}),
+  };
+
+  const mergedSecuritySchemes = {
+    ...(authSpec.components?.securitySchemes || {}),
+    ...(collabSpec.components?.securitySchemes || {}),
+  };
+
+  const mergedParameters = {
+    ...(authSpec.components?.parameters || {}),
+    ...(collabSpec.components?.parameters || {}),
+  };
+
+  const mergedResponses = {
+    ...(authSpec.components?.responses || {}),
+    ...(collabSpec.components?.responses || {}),
+  };
+
+  const consolidated = {
+    openapi: "3.0.3",
+    info: {
+      title: "CIMA CRM API Gateway",
+      description:
+        "Especificación consolidada del API Gateway (KrakenD). " +
+        "Documenta todas las rutas públicas expuestas al frontend, " +
+        "combinando los módulos de autenticación y colaboración.",
+      version: "1.0.0",
+      license: {
+        name: "Proyecto academico CIMA CRM",
+      },
+    },
+    servers: [
+      {
+        url: "http://localhost:8080",
+        description: "KrakenD — entrada unica para el SPA",
+      },
+    ],
+    tags: [
+      ...(authSpec.tags || []),
+      ...(collabSpec.tags || []),
+      { name: "BFF", description: "Backend For Frontend — agregaciones" },
+    ],
+    security: [{ BearerAuth: [] }],
+    paths: mergedPaths,
+    components: {
+      securitySchemes: mergedSecuritySchemes,
+      schemas: mergedSchemas,
+      parameters: mergedParameters,
+      responses: mergedResponses,
+    },
+  };
+
+  mkdirSync(dirname(OPENAPI_OUTPUT), { recursive: true });
+  writeFileSync(OPENAPI_OUTPUT, stringifyYaml(consolidated, { lineWidth: 120 }) + "\n", "utf-8");
+
+  const pathCount = Object.keys(mergedPaths).length;
+  const schemaCount = Object.keys(mergedSchemas).length;
+  console.log(`✓ openapi.yaml consolidado: ${OPENAPI_OUTPUT}`);
+  console.log(`  Paths: ${pathCount} | Schemas: ${schemaCount}`);
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────
@@ -294,6 +418,8 @@ function main() {
   console.log(`  Edge caching: ${withCache} endpoints`);
   console.log(`  Circuit breaker: ${total} backends (todos)`);
   console.log(`  Rate limiting: ${publicDef.endpoints.filter((e) => e.rate_limit).length} endpoints`);
+
+  generateOpenAPI();
 }
 
 main();

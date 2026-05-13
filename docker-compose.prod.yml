@@ -62,6 +62,7 @@ services:
       - DATABASE_URL=postgres://root:rootpassword@postgres_db:5432/crm_database
       - TRUST_GATEWAY_JWT_HEADERS=true
       - GATEWAY_TRUST_SECRET=cima-local-gateway-trust-secret-do-not-use-production-2026
+      - MOD_AUTH_URL=http://mod-auth:3000
       - OCI_NAMESPACE=dummy
       - OCI_REGION=dummy
       - OCI_ACCESS_KEY=dummy
@@ -72,27 +73,16 @@ services:
     networks:
       - crm_net
 
-  bff-workspace:
-    build: ./bff-workspace
-    container_name: crm_bff
-    restart: always
-    environment:
-      - MOD_AUTH_URL=http://mod-auth:3000
-      - MOD_COLLAB_URL=http://mod-collab:3001
-      - GATEWAY_TRUST_SECRET=cima-local-gateway-trust-secret-do-not-use-production-2026
-    networks:
-      - crm_net
-
   api-gateway:
     image: krakend:latest
     container_name: crm_krakend
     restart: always
     volumes:
       - ./krakend.json:/etc/krakend/krakend.json:ro
+      - ./gateway/output:/etc/krakend/static:ro
     depends_on:
       - mod-auth
       - mod-collab
-      - bff-workspace
     networks:
       - crm_net
 

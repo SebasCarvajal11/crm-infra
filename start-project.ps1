@@ -4,7 +4,6 @@
 # Levanta:
 #   - Docker (Postgres, Redis, KrakenD)
 #   - mod-auth
-#   - bff-workspace
 #   - crm-frontend
 #
 # Uso:
@@ -52,7 +51,7 @@ function Start-NpmProject($path, $command, $name) {
 # =========================================================
 
 Write-Host ""
-Write-Host "CIMA CRM — arranque local (Windows)" -ForegroundColor Green
+Write-Host "CIMA CRM ï¿½ arranque local (Windows)" -ForegroundColor Green
 
 # =========================================================
 # Validaciones
@@ -60,9 +59,9 @@ Write-Host "CIMA CRM — arranque local (Windows)" -ForegroundColor Green
 
 Write-Step "Validando herramientas instaladas..."
 
-Test-Command "node" "Node.js no está instalado o no está en PATH."
-Test-Command "npm" "npm no está instalado o no está en PATH."
-Test-Command "docker" "Docker no está instalado o no está en PATH."
+Test-Command "node" "Node.js no estï¿½ instalado o no estï¿½ en PATH."
+Test-Command "npm" "npm no estï¿½ instalado o no estï¿½ en PATH."
+Test-Command "docker" "Docker no estï¿½ instalado o no estï¿½ en PATH."
 
 # =========================================================
 # Generar krakend.json
@@ -79,7 +78,7 @@ if (Test-Path $buildScript) {
     }
     catch {
         Write-Host "Advertencia: no se pudo ejecutar build-krakend.mjs." -ForegroundColor Yellow
-        Write-Host "Se usará el krakend.json existente." -ForegroundColor Yellow
+        Write-Host "Se usarï¿½ el krakend.json existente." -ForegroundColor Yellow
     }
 }
 
@@ -92,7 +91,7 @@ Write-Step "Levantando contenedores Docker..."
 $composeFile = Join-Path $Root 'docker-compose.yml'
 
 if (-not (Test-Path $composeFile)) {
-    Write-Host "ERROR: No se encontró docker-compose.yml en:" -ForegroundColor Red
+    Write-Host "ERROR: No se encontrï¿½ docker-compose.yml en:" -ForegroundColor Red
     Write-Host $Root -ForegroundColor Yellow
     exit 1
 }
@@ -102,14 +101,14 @@ try {
     docker compose -f $composeFile up -d
 
     if ($LASTEXITCODE -ne 0) {
-        throw "Docker Compose falló."
+        throw "Docker Compose fallï¿½."
     }
 
 }
 catch {
     Write-Host ""
     Write-Host "ERROR al iniciar Docker Compose." -ForegroundColor Red
-    Write-Host "Verifica que Docker Desktop esté abierto." -ForegroundColor Yellow
+    Write-Host "Verifica que Docker Desktop estï¿½ abierto." -ForegroundColor Yellow
     throw
 }
 
@@ -134,7 +133,7 @@ for ($i = 0; $i -lt 15; $i++) {
 }
 
 if (-not $dockerReady) {
-    Write-Host "Docker no respondió a tiempo." -ForegroundColor Yellow
+    Write-Host "Docker no respondiï¿½ a tiempo." -ForegroundColor Yellow
 }
 
 # =========================================================
@@ -147,19 +146,6 @@ Start-NpmProject `
     -path $modAuth `
     -command 'npm start' `
     -name 'mod-auth'
-
-Start-Sleep -Seconds 1
-
-# =========================================================
-# bff-workspace
-# =========================================================
-
-$bff = Join-Path $Root 'bff-workspace'
-
-Start-NpmProject `
-    -path $bff `
-    -command 'npm start' `
-    -name 'bff-workspace'
 
 Start-Sleep -Seconds 1
 
@@ -185,7 +171,6 @@ Write-Host "=========================================" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "API Gateway:    http://localhost:8080/health" -ForegroundColor Gray
 Write-Host "mod-auth:       http://localhost:3000" -ForegroundColor Gray
-Write-Host "BFF Workspace:  http://localhost:3002/health" -ForegroundColor Gray
 Write-Host "Frontend:       http://localhost:5173" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Cierra las ventanas de PowerShell para detener los servicios." -ForegroundColor DarkGray
