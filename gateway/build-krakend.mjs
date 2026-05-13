@@ -29,8 +29,8 @@ const DEFAULT_OUTPUT = resolve(__dirname, "..", "krakend.json");
 const GATEWAY_TRUST_SECRET =
   "cima-local-gateway-trust-secret-do-not-use-production-2026";
 
-const AUTH_HOST = "http://mod-auth:3000";
-const COLLAB_HOST = "http://mod-auth:3001";
+const AUTH_HOST = process.env.KRAKEND_AUTH_HOST || "http://host.docker.internal:3000";
+const COLLAB_HOST = process.env.KRAKEND_COLLAB_HOST || "http://host.docker.internal:3001";
 
 const AUTH_OPENAPI = resolve(__dirname, "..", "mod-auth", "openapi", "openapi.yaml");
 const COLLAB_OPENAPI = resolve(__dirname, "..", "mod-collab", "openapi", "openapi.yaml");
@@ -54,7 +54,7 @@ function jwtValidator() {
   return {
     "auth/validator": {
       alg: "RS256",
-      jwk_url: "http://mod-auth:3000/.well-known/jwks.json",
+      jwk_url: `${AUTH_HOST}/.well-known/jwks.json`,
       cache: true,
       cache_duration: 900,
       disable_jwk_security: true,
@@ -227,7 +227,8 @@ function buildBffEndpoint(def) {
     if (b.cache_ttl) backendDef.cache_ttl = b.cache_ttl;
     backendDef.cb_name = `cb-bff-${b.url_pattern.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 40)}`;
 
-    const backend = buildBackend(b.host, b.url_pattern, backendDef);
+    const host = b.host || (b.url_pattern.startsWith("/collab/") ? COLLAB_HOST : AUTH_HOST);
+    const backend = buildBackend(host, b.url_pattern, backendDef);
     if (b.encoding) {
       backend.encoding = b.encoding;
     } else {

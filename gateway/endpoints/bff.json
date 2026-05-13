@@ -5,10 +5,9 @@
       "endpoint": "/bff/dashboard",
       "method": "GET",
       "timeout": "3s",
-      "input_query_strings": ["page", "limit"],
       "backends": [
         {
-          "host": "http://mod-auth:3000",
+          "host": "http://host.docker.internal:3000",
           "url_pattern": "/auth/me/flat",
           "allow": [
             "email",
@@ -19,8 +18,8 @@
           "group": "identity"
         },
         {
-          "host": "http://mod-collab:3001",
-          "url_pattern": "/collab/projects?page={req_query_page}&limit={req_query_limit}",
+          "host": "http://host.docker.internal:3001",
+          "url_pattern": "/collab/projects?page=1&limit=100",
           "group": "projects"
         }
       ]
@@ -29,11 +28,10 @@
       "endpoint": "/bff/admin-overview",
       "method": "GET",
       "timeout": "3s",
-      "input_query_strings": ["page", "limit"],
       "backends": [
         {
-          "host": "http://mod-auth:3000",
-          "url_pattern": "/users?page={req_query_page}&limit={req_query_limit}",
+          "host": "http://host.docker.internal:3000",
+          "url_pattern": "/users?page=1&limit=100",
           "allow": [
             "id",
             "email",
@@ -45,8 +43,8 @@
           "group": "users"
         },
         {
-          "host": "http://mod-collab:3001",
-          "url_pattern": "/collab/projects?page={req_query_page}&limit={req_query_limit}",
+          "host": "http://host.docker.internal:3001",
+          "url_pattern": "/collab/projects?page=1&limit=100",
           "group": "projects"
         }
       ]
