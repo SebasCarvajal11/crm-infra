@@ -31,6 +31,7 @@ const GATEWAY_TRUST_SECRET =
 
 const AUTH_HOST = process.env.KRAKEND_AUTH_HOST || "http://host.docker.internal:3000";
 const COLLAB_HOST = process.env.KRAKEND_COLLAB_HOST || "http://host.docker.internal:3001";
+const MEDIA_HOST = process.env.KRAKEND_MEDIA_HOST || "http://host.docker.internal:3002";
 
 const AUTH_OPENAPI = resolve(__dirname, "..", "mod-auth", "openapi", "openapi.yaml");
 const COLLAB_OPENAPI = resolve(__dirname, "..", "mod-collab", "openapi", "openapi.yaml");
@@ -370,12 +371,14 @@ function main() {
   const publicDef = loadEndpoints("public.json");
   const authDef = loadEndpoints("auth.json");
   const collabDef = loadEndpoints("collab.json");
+  const mediaDef = loadEndpoints("media.json");
   const bffDef = loadEndpoints("bff.json");
 
   const endpoints = [
     ...publicDef.endpoints.map(buildPublicEndpoint),
     ...authDef.endpoints.map((d) => buildAuthEndpoint(d, authDef.host || AUTH_HOST)),
     ...collabDef.endpoints.map((d) => buildAuthEndpoint(d, collabDef.host || COLLAB_HOST)),
+    ...mediaDef.endpoints.map((d) => buildAuthEndpoint(d, mediaDef.host || MEDIA_HOST)),
     ...bffDef.endpoints.map(buildBffEndpoint),
   ];
 
@@ -407,14 +410,15 @@ function main() {
   const publicCount = publicDef.endpoints.length;
   const authCount = authDef.endpoints.length;
   const collabCount = collabDef.endpoints.length;
+  const mediaCount = mediaDef.endpoints.length;
   const bffCount = bffDef.endpoints.length;
-  const total = publicCount + authCount + collabCount + bffCount;
+  const total = publicCount + authCount + collabCount + mediaCount + bffCount;
 
-  const withAllow = [...authDef.endpoints, ...collabDef.endpoints].filter((e) => e.allow).length;
+  const withAllow = [...authDef.endpoints, ...collabDef.endpoints, ...mediaDef.endpoints].filter((e) => e.allow).length;
   const withCache = [...collabDef.endpoints].filter((e) => e.cache_ttl).length;
 
   console.log(`✓ krakend.json generado: ${outputPath}`);
-  console.log(`  Endpoints: ${total} (public:${publicCount} auth:${authCount} collab:${collabCount} bff:${bffCount})`);
+  console.log(`  Endpoints: ${total} (public:${publicCount} auth:${authCount} collab:${collabCount} media:${mediaCount} bff:${bffCount})`);
   console.log(`  Response filtering (allow): ${withAllow} endpoints`);
   console.log(`  Edge caching: ${withCache} endpoints`);
   console.log(`  Circuit breaker: ${total} backends (todos)`);

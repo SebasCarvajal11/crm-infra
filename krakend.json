@@ -1102,6 +1102,82 @@
       ]
     },
     {
+      "endpoint": "/admin/admins/invite",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3000"
+          ],
+          "url_pattern": "/auth/invite-admin",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-invite-admin"
+            }
+          }
+        }
+      ]
+    },
+    {
       "endpoint": "/admin/clients/invite",
       "method": "POST",
       "output_encoding": "no-op",
@@ -1258,6 +1334,13 @@
             "force_password_change"
           ]
         }
+      ],
+      "input_query_strings": [
+        "page",
+        "limit",
+        "role",
+        "include_deleted",
+        "q"
       ]
     },
     {
@@ -1645,6 +1728,85 @@
             "unreadNotifications"
           ]
         }
+      ]
+    },
+    {
+      "endpoint": "/projects/search",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3001"
+          ],
+          "url_pattern": "/collab/projects/search",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-projects-search"
+            }
+          }
+        }
+      ],
+      "input_query_strings": [
+        "q",
+        "limit"
       ]
     },
     {
@@ -3701,6 +3863,81 @@
       ]
     },
     {
+      "endpoint": "/projects/{projectId}/timeline",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3001"
+          ],
+          "url_pattern": "/collab/projects/{projectId}/timeline",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-projects--projectId--timeline"
+            }
+          }
+        }
+      ]
+    },
+    {
       "endpoint": "/projects/{projectId}/files/timeline",
       "method": "GET",
       "output_encoding": "no-op",
@@ -3776,7 +4013,7 @@
       ]
     },
     {
-      "endpoint": "/projects/{projectId}/files/upload",
+      "endpoint": "/projects/{projectId}/files/upload-url",
       "method": "POST",
       "output_encoding": "no-op",
       "extra_config": {
@@ -3828,7 +4065,7 @@
           "host": [
             "http://host.docker.internal:3001"
           ],
-          "url_pattern": "/collab/projects/{projectId}/files/upload",
+          "url_pattern": "/collab/projects/{projectId}/files/upload-url",
           "encoding": "no-op",
           "extra_config": {
             "modifier/martian": {
@@ -3845,7 +4082,7 @@
               "timeout": 10,
               "max_errors": 3,
               "log_status_change": true,
-              "name": "cb--collab-projects--projectId--files-upload"
+              "name": "cb--collab-projects--projectId--files-upload-url"
             }
           }
         }
@@ -4000,6 +4237,87 @@
             }
           }
         }
+      ],
+      "input_query_strings": [
+        "preview"
+      ]
+    },
+    {
+      "endpoint": "/files/{fileId}/access",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3001"
+          ],
+          "url_pattern": "/collab/files/{fileId}/access",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-files--fileId--access"
+            }
+          }
+        }
+      ],
+      "input_query_strings": [
+        "preview"
       ]
     },
     {
@@ -4380,7 +4698,7 @@
       ]
     },
     {
-      "endpoint": "/projects/{projectId}/tasks/{taskId}/files",
+      "endpoint": "/projects/{projectId}/tasks/{taskId}/files/upload-url",
       "method": "POST",
       "output_encoding": "no-op",
       "extra_config": {
@@ -4432,7 +4750,7 @@
           "host": [
             "http://host.docker.internal:3001"
           ],
-          "url_pattern": "/collab/projects/{projectId}/tasks/{taskId}/files",
+          "url_pattern": "/collab/projects/{projectId}/tasks/{taskId}/files/upload-url",
           "encoding": "no-op",
           "extra_config": {
             "modifier/martian": {
@@ -4449,7 +4767,83 @@
               "timeout": 10,
               "max_errors": 3,
               "log_status_change": true,
-              "name": "cb--collab-projects--projectId--tasks--taskId--files"
+              "name": "cb--collab-projects--projectId--tasks--taskId--files-"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/projects/{projectId}/tasks/{taskId}/files/metadata",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3001"
+          ],
+          "url_pattern": "/collab/projects/{projectId}/tasks/{taskId}/files/metadata",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-projects--projectId--tasks--taskId--files-"
             }
           }
         }
@@ -4679,6 +5073,544 @@
             }
           }
         }
+      ]
+    },
+    {
+      "endpoint": "/media/avatars",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3002"
+          ],
+          "url_pattern": "/media/avatars",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--media-avatars"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/media/documents/upload-url",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3002"
+          ],
+          "url_pattern": "/media/documents/upload-url",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--media-documents-upload-url"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/media/documents/confirm",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3002"
+          ],
+          "url_pattern": "/media/documents/confirm",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--media-documents-confirm"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/media/documents",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3002"
+          ],
+          "url_pattern": "/media/documents",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--media-documents"
+            }
+          }
+        }
+      ],
+      "input_query_strings": [
+        "objectKey"
+      ]
+    },
+    {
+      "endpoint": "/media/documents/access",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3002"
+          ],
+          "url_pattern": "/media/documents/access",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--media-documents-access"
+            }
+          }
+        }
+      ],
+      "input_query_strings": [
+        "objectKey",
+        "download"
+      ]
+    },
+    {
+      "endpoint": "/media/avatars/current",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3002"
+          ],
+          "url_pattern": "/media/avatars/current",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--media-avatars-current"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/media/avatars/users",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:3002"
+          ],
+          "url_pattern": "/media/avatars/users",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--media-avatars-users"
+            }
+          }
+        }
+      ],
+      "input_query_strings": [
+        "ids"
       ]
     },
     {

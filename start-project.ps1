@@ -72,6 +72,25 @@ function Test-HttpEndpoint([string]$Url, [int]$Attempts = 20, [int]$DelaySeconds
   return $false
 }
 
+function Get-EnvValue([string]$EnvFilePath, [string]$Key) {
+  if (-not (Test-Path $EnvFilePath)) { return $null }
+
+  $match = Select-String -Path $EnvFilePath -Pattern "^\s*$Key\s*=\s*(.+)\s*$" | Select-Object -First 1
+  if (-not $match) { return $null }
+
+  $value = $match.Matches[0].Groups[1].Value.Trim()
+  if ($value.StartsWith('"') -and $value.EndsWith('"')) {
+    return $value.Trim('"')
+  }
+  return $value
+}
+
+function Test-WorkerRunning([string]$CommandMarker) {
+  $procs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and $_.CommandLine -like "*$CommandMarker*" }
+  return [bool]($procs | Select-Object -First 1)
+}
+
 Write-Host ""
 Write-Host "CIMA CRM - arranque local (Windows)" -ForegroundColor Green
 
@@ -120,10 +139,12 @@ if (-not (Test-HttpEndpoint -Url 'http://localhost:8080/health' -Attempts 30 -De
 
 $modAuth = Join-Path $Root 'mod-auth'
 $modCollab = Join-Path $Root 'mod-collab'
+$modMedia = Join-Path $Root 'mod-media'
 $frontend = Join-Path $Root 'crm-frontend'
 
 Prepare-PnpmProject -Path $modAuth -Name 'mod-auth'
 Prepare-PnpmProject -Path $modCollab -Name 'mod-collab'
+Prepare-PnpmProject -Path $modMedia -Name 'mod-media'
 Prepare-PnpmProject -Path $frontend -Name 'crm-frontend'
 
 if (Test-ServiceHealthy -Url 'http://localhost:3000/health') {
@@ -133,10 +154,30 @@ if (Test-ServiceHealthy -Url 'http://localhost:3000/health') {
   Start-Sleep -Seconds 1
 }
 
+$modAuthEnv = Join-Path $modAuth '.env'
+$redisUrl = Get-EnvValue -EnvFilePath $modAuthEnv -Key 'REDIS_URL'
+if ($redisUrl) {
+  if (Test-WorkerRunning -CommandMarker 'worker:email') {
+    Write-Host "worker:email ya esta activo. Se omite segunda instancia." -ForegroundColor Yellow
+  } else {
+    Start-ProjectProcess -Path $modAuth -Command 'pnpm worker:email' -Name 'mod-auth worker:email'
+    Start-Sleep -Seconds 1
+  }
+} else {
+  Write-Host "worker:email omitido: REDIS_URL no esta configurado en mod-auth/.env." -ForegroundColor Yellow
+}
+
 if (Test-ServiceHealthy -Url 'http://localhost:3001/health') {
   Write-Host "mod-collab ya esta activo en :3001. Se omite segunda instancia." -ForegroundColor Yellow
 } else {
   Start-ProjectProcess -Path $modCollab -Command 'pnpm dev' -Name 'mod-collab'
+  Start-Sleep -Seconds 1
+}
+
+if (Test-ServiceHealthy -Url 'http://localhost:3002/health') {
+  Write-Host "mod-media ya esta activo en :3002. Se omite segunda instancia." -ForegroundColor Yellow
+} else {
+  Start-ProjectProcess -Path $modMedia -Command 'pnpm dev' -Name 'mod-media'
   Start-Sleep -Seconds 1
 }
 
@@ -154,6 +195,7 @@ Write-Host ""
 Write-Host "Gateway:         http://localhost:8080/health" -ForegroundColor Gray
 Write-Host "mod-auth:        http://localhost:3000" -ForegroundColor Gray
 Write-Host "mod-collab:      http://localhost:3001/health" -ForegroundColor Gray
+Write-Host "mod-media:       http://localhost:3002/health" -ForegroundColor Gray
 Write-Host "Frontend:        http://localhost:5173" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Cierra las ventanas de PowerShell para detener los servicios." -ForegroundColor DarkGray
