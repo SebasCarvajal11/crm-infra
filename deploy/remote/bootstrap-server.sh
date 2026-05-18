@@ -18,6 +18,15 @@ done
 
 mkdir -p "$base_dir"
 
+ensure_docker_primitive() {
+  local kind="$1"
+  local name="$2"
+
+  if ! docker "$kind" inspect "$name" >/dev/null 2>&1; then
+    docker "$kind" create "$name" >/dev/null
+  fi
+}
+
 clone_or_update() {
   local repo_name="$1"
   local repo_url="https://github.com/${owner}/${repo_name}.git"
@@ -51,6 +60,10 @@ for repo in crm-infra crm-auth crm-collab crm-media crm-frontend; do
 done
 
 mkdir -p "${base_dir}/crm-infra/deploy/runtime"
+
+ensure_docker_primitive network crm-shared-backplane
+ensure_docker_primitive volume crm-infra_postgres_data_prod
+ensure_docker_primitive volume crm-infra_clamav_data_prod
 
 if [[ ! -f "${base_dir}/.active-slot" ]]; then
   printf 'blue\n' > "${base_dir}/.active-slot"

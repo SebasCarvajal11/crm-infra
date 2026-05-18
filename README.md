@@ -69,6 +69,7 @@ Production deployment is centralized here even when the code lives in split repo
 
 - `docker-compose.prod.yml` owns the stable shared platform: Postgres, Redis, ClamAV, and the public edge proxy
 - `docker-compose.slot.prod.yml` defines one application slot (frontend, gateway, auth, collab, media, and workers)
+- `crm-shared-backplane` is the explicit Docker network used by both layers so slot services can reach shared dependencies without host-gateway tricks
 - `.github/workflows/reusable-deploy.yml` is the shared GitHub Actions deployment entrypoint
 - `deploy/remote/bootstrap-server.sh` prepares the target host deterministically
 - `deploy/remote/deploy-component.sh` is the only remote deployment command executed on the server
@@ -113,6 +114,7 @@ The platform uses a split but standardized pipeline model:
 - deployments use blue/green application slots on loopback host ports (`8081/8082` for frontend, `18081/18082` for gateway)
 - the edge proxy only switches to the inactive slot after the new slot passes local health verification
 - the gateway is never exposed publicly; `/api` stays behind the frontend/edge chain
+- shared dependencies (`postgres_db`, `redis`, `clamav-scanner`) are consumed over a dedicated Docker backplane instead of `host.docker.internal`, which avoids host-routing drift across Docker Engine updates
 
 This is the baseline expected for future modules: independent CI in the module repo, centralized deployment orchestration in `crm-infra`, and explicit environment/secret management outside source control.
 

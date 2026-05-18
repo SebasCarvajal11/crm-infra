@@ -133,10 +133,17 @@ with_dotenv() {
   )
 }
 
+ensure_shared_docker_primitives() {
+  docker network inspect crm-shared-backplane >/dev/null 2>&1 || docker network create crm-shared-backplane >/dev/null
+  docker volume inspect crm-infra_postgres_data_prod >/dev/null 2>&1 || docker volume create crm-infra_postgres_data_prod >/dev/null
+  docker volume inspect crm-infra_clamav_data_prod >/dev/null 2>&1 || docker volume create crm-infra_clamav_data_prod >/dev/null
+}
+
 container_db_url() {
   local runtime_url="$1"
-  local host_port="${POSTGRES_HOST_PORT:-5432}"
-  printf '%s' "${runtime_url/postgres_db:5432/host.docker.internal:${host_port}}"
+  local without_host
+  without_host="$(printf '%s' "$runtime_url" | sed -E 's#@[^/]+/#@postgres_db:5432/#')"
+  printf '%s' "$without_host"
 }
 
 host_db_url() {
@@ -147,8 +154,9 @@ host_db_url() {
 
 container_redis_url() {
   local runtime_url="$1"
-  local host_port="${REDIS_HOST_PORT:-6379}"
-  printf '%s' "${runtime_url/redis:6379/host.docker.internal:${host_port}}"
+  local normalized
+  normalized="$(printf '%s' "$runtime_url" | sed -E 's#redis://[^/]+#redis://redis:6379#')"
+  printf '%s' "$normalized"
 }
 
 dump_logs() {
@@ -284,13 +292,14 @@ EOF
 
   cat > "$runtime_dir/media.${slot}.env" <<EOF
 DATABASE_URL=$(container_db_url "$media_database_url")
-CLAMAV_HOST=host.docker.internal
-CLAMAV_PORT=${CLAMAV_HOST_PORT:-3310}
+CLAMAV_HOST=clamav-scanner
+CLAMAV_PORT=3310
 MOD_COLLAB_URL=http://collab:3001
 EOF
 }
 
 start_shared_platform() {
+  ensure_shared_docker_primitives
   docker compose -p "$shared_project" -f "$shared_compose" up -d postgres_db redis clamav-scanner edge-proxy
 }
 

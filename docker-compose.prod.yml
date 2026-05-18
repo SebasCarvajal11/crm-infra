@@ -10,6 +10,8 @@ services:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
+    networks:
+      - shared_backplane
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-root} -d ${POSTGRES_DB:-crm_database}"]
       interval: 10s
@@ -22,6 +24,8 @@ services:
     command: redis-server --save "" --appendonly no
     ports:
       - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    networks:
+      - shared_backplane
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -35,6 +39,8 @@ services:
       - "127.0.0.1:${CLAMAV_HOST_PORT:-3310}:3310"
     volumes:
       - clamav_data_prod:/var/lib/clamav
+    networks:
+      - shared_backplane
 
   edge-proxy:
     image: nginx:1.27-alpine
@@ -55,5 +61,11 @@ services:
 volumes:
   postgres_data_prod:
     name: crm-infra_postgres_data_prod
+    external: true
   clamav_data_prod:
     name: crm-infra_clamav_data_prod
+    external: true
+
+networks:
+  shared_backplane:
+    name: crm-shared-backplane

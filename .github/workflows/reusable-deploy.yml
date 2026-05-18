@@ -24,6 +24,9 @@ on:
       DEPLOY_BASE_DIR:
         required: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 permissions:
   contents: read
 

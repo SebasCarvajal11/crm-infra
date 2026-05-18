@@ -6,8 +6,9 @@ services:
     env_file:
       - ../crm-auth/.env.production
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - shared_backplane
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 20s
@@ -22,8 +23,9 @@ services:
     env_file:
       - ../crm-auth/.env.production
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - shared_backplane
     depends_on:
       auth:
         condition: service_started
@@ -36,8 +38,9 @@ services:
     env_file:
       - ../crm-auth/.env.production
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - shared_backplane
     depends_on:
       auth:
         condition: service_started
@@ -49,8 +52,9 @@ services:
     env_file:
       - ../crm-media/.env.production
       - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - shared_backplane
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
     healthcheck:
@@ -66,8 +70,9 @@ services:
     env_file:
       - ../crm-collab/.env.production
       - ./deploy/runtime/collab.${APP_SLOT:?APP_SLOT is required}.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - shared_backplane
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
     depends_on:
@@ -89,8 +94,9 @@ services:
     env_file:
       - ../crm-collab/.env.production
       - ./deploy/runtime/collab.${APP_SLOT:?APP_SLOT is required}.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - shared_backplane
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
     depends_on:
@@ -112,6 +118,8 @@ services:
         condition: service_started
       media:
         condition: service_started
+    networks:
+      - default
 
   frontend:
     build:
@@ -122,3 +130,10 @@ services:
     depends_on:
       api-gateway:
         condition: service_started
+    networks:
+      - default
+
+networks:
+  shared_backplane:
+    external: true
+    name: crm-shared-backplane
