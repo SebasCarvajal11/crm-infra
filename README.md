@@ -68,7 +68,9 @@ Useful local overrides:
 Production deployment is centralized here even when the code lives in split repositories.
 
 - `docker-compose.prod.yml` owns the full stack topology
-- `deploy/remote/deploy-component.sh` is the only remote entrypoint used by GitHub Actions
+- `.github/workflows/reusable-deploy.yml` is the shared GitHub Actions deployment entrypoint
+- `deploy/remote/bootstrap-server.sh` prepares the target host deterministically
+- `deploy/remote/deploy-component.sh` is the only remote deployment command executed on the server
 - each service repository deploys through `crm-infra` instead of duplicating server logic
 
 Current production assumptions:
@@ -97,6 +99,18 @@ export DEPLOY_BASE_DIR=/opt/cima
 export DEPLOY_BRANCH=main
 bash deploy/remote/bootstrap-server.sh
 ```
+
+## CI/CD Model
+
+The platform uses a split but standardized pipeline model:
+
+- each service repository owns its own CI and must prove its own build and service-level verification
+- production deployment logic is centralized in `crm-infra`
+- service repositories call the shared reusable deployment workflow from `crm-infra` instead of carrying custom SSH logic
+- the Oracle host enforces a server-side deployment lock through `flock`, so concurrent deploy triggers cannot mutate the stack at the same time
+- the public production entrypoint is the frontend on port `80`; the gateway is exposed only on loopback and is consumed through `/api`
+
+This is the baseline expected for future modules: independent CI in the module repo, centralized deployment orchestration in `crm-infra`, and explicit environment/secret management outside source control.
 
 ## Notes
 

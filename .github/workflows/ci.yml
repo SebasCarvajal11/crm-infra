@@ -5,6 +5,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+defaults:
+  run:
+    working-directory: crm-infra
+
 jobs:
   gateway-build:
     runs-on: ubuntu-latest
@@ -12,10 +16,37 @@ jobs:
       POSTGRES_PASSWORD: ci-postgres-password
       GATEWAY_HOST_PORT: "8080"
       FRONTEND_HOST_PORT: "80"
+      POSTGRES_HOST_PORT: "5432"
 
     steps:
-      - name: Checkout
+      - name: Checkout infra
         uses: actions/checkout@v4
+        with:
+          path: crm-infra
+
+      - name: Checkout auth
+        uses: actions/checkout@v4
+        with:
+          repository: SebasCarvajal11/crm-auth
+          path: crm-auth
+
+      - name: Checkout collab
+        uses: actions/checkout@v4
+        with:
+          repository: SebasCarvajal11/crm-collab
+          path: crm-collab
+
+      - name: Checkout media
+        uses: actions/checkout@v4
+        with:
+          repository: SebasCarvajal11/crm-media
+          path: crm-media
+
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          repository: SebasCarvajal11/crm-frontend
+          path: crm-frontend
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -31,7 +62,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prepare production env files
+        shell: bash
+        run: |
+          cp .env.production.example .env.production
+          cp ../crm-auth/.env.production.example ../crm-auth/.env.production
+          cp ../crm-collab/.env.production.example ../crm-collab/.env.production
+          cp ../crm-media/.env.production.example ../crm-media/.env.production
+          cp ../crm-frontend/.env.production.example ../crm-frontend/.env.production
+
       - name: Build KrakenD config
+        env:
+          CIMA_AUTH_PATH: ${{ github.workspace }}/crm-auth
+          CIMA_COLLAB_PATH: ${{ github.workspace }}/crm-collab
         run: pnpm gateway:build
 
       - name: Validate Docker Compose
