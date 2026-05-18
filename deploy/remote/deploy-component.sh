@@ -435,7 +435,7 @@ write_runtime_env_files green
 build_gateway_for_slot "$target_slot"
 
 legacy_only_stack="false"
-if [[ -z "$previous_slot" ]] && ! project_has_any_container "$shared_project" && project_has_any_container "$legacy_project"; then
+if [[ -z "$previous_slot" ]] && project_has_any_container "$legacy_project"; then
   legacy_only_stack="true"
 fi
 
