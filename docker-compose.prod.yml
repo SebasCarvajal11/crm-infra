@@ -57,4 +57,6 @@ services:
 
 volumes:
   postgres_data_prod:
+    name: crm-infra_postgres_data_prod
   clamav_data_prod:
+    name: crm-infra_clamav_data_prod

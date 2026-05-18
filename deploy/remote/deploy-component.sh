@@ -36,6 +36,7 @@ shared_project="crm-shared"
 shared_compose="$stack_dir/docker-compose.prod.yml"
 slot_compose="$stack_dir/docker-compose.slot.prod.yml"
 public_port="${FRONTEND_HOST_PORT:-80}"
+legacy_project="crm-infra"
 
 mkdir -p "$lock_dir" "$runtime_dir"
 exec 9>"$lock_dir/production.lock"
@@ -81,6 +82,11 @@ other_slot() {
 slot_has_project() {
   local project
   project="$(slot_project "$1")"
+  docker ps -a --filter "label=com.docker.compose.project=${project}" --format '{{.ID}}' | grep -q .
+}
+
+project_has_any_container() {
+  local project="$1"
   docker ps -a --filter "label=com.docker.compose.project=${project}" --format '{{.ID}}' | grep -q .
 }
 
@@ -410,6 +416,12 @@ if [[ "$previous_slot" != "blue" && "$previous_slot" != "green" ]]; then
   else
     previous_slot=""
   fi
+elif ! slot_has_project "$previous_slot"; then
+  if slot_has_project "$(other_slot "$previous_slot")"; then
+    previous_slot="$(other_slot "$previous_slot")"
+  else
+    previous_slot=""
+  fi
 fi
 
 if [[ -n "$previous_slot" ]]; then
@@ -421,7 +433,19 @@ fi
 write_runtime_env_files blue
 write_runtime_env_files green
 build_gateway_for_slot "$target_slot"
-activate_edge_slot "${previous_slot:-$target_slot}"
+
+legacy_only_stack="false"
+if [[ -z "$previous_slot" && ! project_has_any_container "$shared_project" && project_has_any_container "$legacy_project" ]]; then
+  legacy_only_stack="true"
+fi
+
+if [[ "$legacy_only_stack" == "false" ]]; then
+  activate_edge_slot "${previous_slot:-$target_slot}"
+fi
+
+if [[ "$legacy_only_stack" == "true" ]]; then
+  docker ps -aq --filter "label=com.docker.compose.project=${legacy_project}" | xargs -r docker rm -f
+fi
 
 start_shared_platform
 wait_for_postgres
