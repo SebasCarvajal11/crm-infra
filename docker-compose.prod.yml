@@ -69,3 +69,4 @@ volumes:
 networks:
   shared_backplane:
     name: crm-shared-backplane
+    external: true
