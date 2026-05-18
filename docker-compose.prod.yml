@@ -10,8 +10,6 @@ services:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
-    networks:
-      - crm_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-root} -d ${POSTGRES_DB:-crm_database}"]
       interval: 10s
@@ -22,8 +20,8 @@ services:
     image: redis:7-alpine
     restart: always
     command: redis-server --save "" --appendonly no
-    networks:
-      - crm_net
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -33,158 +31,29 @@ services:
   clamav-scanner:
     image: clamav/clamav-debian:latest
     restart: always
+    ports:
+      - "127.0.0.1:${CLAMAV_HOST_PORT:-3310}:3310"
     volumes:
       - clamav_data_prod:/var/lib/clamav
-    networks:
-      - crm_net
 
-  auth:
-    build:
-      context: ../crm-auth
+  edge-proxy:
+    image: nginx:1.27-alpine
     restart: always
-    env_file:
-      - ../crm-auth/.env.production
     depends_on:
-      postgres_db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - crm_net
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-
-  auth-email-worker:
-    build:
-      context: ../crm-auth
-    restart: always
-    command: ["pnpm", "worker:email"]
-    env_file:
-      - ../crm-auth/.env.production
-    depends_on:
-      postgres_db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      auth:
-        condition: service_started
-    networks:
-      - crm_net
-
-  auth-token-cleanup-worker:
-    build:
-      context: ../crm-auth
-    restart: always
-    command: ["pnpm", "worker:cleanup"]
-    env_file:
-      - ../crm-auth/.env.production
-    depends_on:
-      postgres_db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      auth:
-        condition: service_started
-    networks:
-      - crm_net
-
-  media:
-    build:
-      context: ../crm-media
-    restart: always
-    env_file:
-      - ../crm-media/.env.production
-    volumes:
-      - /opt/cima/secrets:/opt/cima/secrets:ro
-    depends_on:
-      postgres_db:
-        condition: service_healthy
-      clamav-scanner:
-        condition: service_started
-    networks:
-      - crm_net
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-
-  collab:
-    build:
-      context: ../crm-collab
-    restart: always
-    env_file:
-      - ../crm-collab/.env.production
-    volumes:
-      - /opt/cima/secrets:/opt/cima/secrets:ro
-    depends_on:
-      postgres_db:
-        condition: service_healthy
-      auth:
-        condition: service_started
-      media:
-        condition: service_started
-    networks:
-      - crm_net
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-
-  collab-orphan-oci-worker:
-    build:
-      context: ../crm-collab
-    restart: always
-    command: ["pnpm", "worker:orphan-oci"]
-    env_file:
-      - ../crm-collab/.env.production
-    volumes:
-      - /opt/cima/secrets:/opt/cima/secrets:ro
-    depends_on:
-      postgres_db:
-        condition: service_healthy
-      collab:
-        condition: service_started
-    networks:
-      - crm_net
-
-  api-gateway:
-    image: krakend:latest
-    restart: always
-    ports:
-      - "127.0.0.1:${GATEWAY_HOST_PORT:-8080}:8080"
-    volumes:
-      - ./krakend.json:/etc/krakend/krakend.json:ro
-      - ./gateway/output:/etc/krakend/static:ro
-    depends_on:
-      auth:
-        condition: service_started
-      collab:
-        condition: service_started
-      media:
-        condition: service_started
-    networks:
-      - crm_net
-
-  frontend:
-    build:
-      context: ../crm-frontend
-    restart: always
+      - postgres_db
+      - redis
+      - clamav-scanner
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${FRONTEND_HOST_PORT:-80}:80"
-    depends_on:
-      api-gateway:
-        condition: service_started
-    networks:
-      - crm_net
-
-networks:
-  crm_net:
-    driver: bridge
+    volumes:
+      - ./deploy/runtime/edge.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
 
 volumes:
   postgres_data_prod:

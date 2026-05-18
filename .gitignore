@@ -31,5 +31,9 @@ Thumbs.db
 *.tsbuildinfo
 
 gateway/output/
+deploy/runtime/*
+!deploy/runtime/.gitkeep
+krakend.blue.json
+krakend.green.json
 playwright-report/
 test-results/

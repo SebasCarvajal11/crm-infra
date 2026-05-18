@@ -50,6 +50,25 @@ for repo in crm-infra crm-auth crm-collab crm-media crm-frontend; do
   ensure_env_file "$repo"
 done
 
+mkdir -p "${base_dir}/crm-infra/deploy/runtime"
+
+if [[ ! -f "${base_dir}/.active-slot" ]]; then
+  printf 'blue\n' > "${base_dir}/.active-slot"
+fi
+
+if [[ ! -f "${base_dir}/crm-infra/deploy/runtime/edge.conf" ]]; then
+  cat > "${base_dir}/crm-infra/deploy/runtime/edge.conf" <<'EOF'
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        return 503;
+    }
+}
+EOF
+fi
+
 echo "Server bootstrap complete under ${base_dir}"
 echo "Next steps:"
 echo "1. Fill each .env.production with real values."

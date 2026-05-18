@@ -14,9 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     env:
       POSTGRES_PASSWORD: ci-postgres-password
-      GATEWAY_HOST_PORT: "8080"
+      REDIS_HOST_PORT: "6379"
+      CLAMAV_HOST_PORT: "3310"
       FRONTEND_HOST_PORT: "80"
       POSTGRES_HOST_PORT: "5432"
+      APP_SLOT: blue
+      GATEWAY_SLOT_HOST_PORT: "18081"
+      FRONTEND_SLOT_HOST_PORT: "8081"
 
     steps:
       - name: Checkout infra
@@ -63,6 +67,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate deploy shell scripts
+        run: |
+          docker run --rm -v "${{ github.workspace }}/crm-infra/deploy/remote/bootstrap-server.sh:/bootstrap.sh:ro" bash:5 bash -n /bootstrap.sh
+          docker run --rm -v "${{ github.workspace }}/crm-infra/deploy/remote/deploy-component.sh:/deploy.sh:ro" bash:5 bash -n /deploy.sh
+
       - name: Prepare production env files
         shell: bash
         run: |
@@ -71,18 +80,47 @@ jobs:
           cp ../crm-collab/.env.production.example ../crm-collab/.env.production
           cp ../crm-media/.env.production.example ../crm-media/.env.production
           cp ../crm-frontend/.env.production.example ../crm-frontend/.env.production
+          mkdir -p deploy/runtime
+          cat > deploy/runtime/edge.conf <<'EOF'
+          server {
+              listen 80;
+              server_name _;
+              location / {
+                  return 200 'edge-ready';
+                  add_header Content-Type text/plain;
+              }
+          }
+          EOF
+          cat > deploy/runtime/auth.blue.env <<'EOF'
+          DATABASE_URL=postgres://root:ci-postgres-password@host.docker.internal:5432/crm_database
+          REDIS_URL=redis://host.docker.internal:6379
+          EOF
+          cat > deploy/runtime/collab.blue.env <<'EOF'
+          DATABASE_URL=postgres://root:ci-postgres-password@host.docker.internal:5432/crm_database
+          MOD_AUTH_URL=http://auth:3000
+          MOD_MEDIA_URL=http://media:3002
+          EOF
+          cat > deploy/runtime/media.blue.env <<'EOF'
+          DATABASE_URL=postgres://root:ci-postgres-password@host.docker.internal:5432/crm_database
+          CLAMAV_HOST=host.docker.internal
+          CLAMAV_PORT=3310
+          MOD_COLLAB_URL=http://collab:3001
+          EOF
 
       - name: Build KrakenD config
         env:
           CIMA_AUTH_PATH: ${{ github.workspace }}/crm-auth
           CIMA_COLLAB_PATH: ${{ github.workspace }}/crm-collab
-        run: pnpm gateway:build
+        run: pnpm gateway:build --output deploy/runtime/krakend.blue.json
 
       - name: Validate Docker Compose
         run: docker compose -f docker-compose.yml config > /dev/null
 
-      - name: Validate production Compose
+      - name: Validate production Shared Compose
         run: docker compose -f docker-compose.prod.yml config > /dev/null
 
+      - name: Validate production Slot Compose
+        run: docker compose -f docker-compose.slot.prod.yml config > /dev/null
+
       - name: Assert runtime gateway config
-        run: test -f krakend.json
+        run: test -f deploy/runtime/krakend.blue.json

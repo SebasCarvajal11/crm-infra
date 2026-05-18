@@ -67,7 +67,8 @@ Useful local overrides:
 
 Production deployment is centralized here even when the code lives in split repositories.
 
-- `docker-compose.prod.yml` owns the full stack topology
+- `docker-compose.prod.yml` owns the stable shared platform: Postgres, Redis, ClamAV, and the public edge proxy
+- `docker-compose.slot.prod.yml` defines one application slot (frontend, gateway, auth, collab, media, and workers)
 - `.github/workflows/reusable-deploy.yml` is the shared GitHub Actions deployment entrypoint
 - `deploy/remote/bootstrap-server.sh` prepares the target host deterministically
 - `deploy/remote/deploy-component.sh` is the only remote deployment command executed on the server
@@ -108,11 +109,14 @@ The platform uses a split but standardized pipeline model:
 - production deployment logic is centralized in `crm-infra`
 - service repositories call the shared reusable deployment workflow from `crm-infra` instead of carrying custom SSH logic
 - the Oracle host enforces a server-side deployment lock through `flock`, so concurrent deploy triggers cannot mutate the stack at the same time
-- the public production entrypoint is the frontend on port `80`; the gateway is exposed only on loopback and is consumed through `/api`
+- the public production entrypoint is a stable edge proxy on port `80`
+- deployments use blue/green application slots on loopback host ports (`8081/8082` for frontend, `18081/18082` for gateway)
+- the edge proxy only switches to the inactive slot after the new slot passes local health verification
+- the gateway is never exposed publicly; `/api` stays behind the frontend/edge chain
 
 This is the baseline expected for future modules: independent CI in the module repo, centralized deployment orchestration in `crm-infra`, and explicit environment/secret management outside source control.
 
 ## Notes
 
-- The root `krakend.json` is the runtime file used by Docker Compose and is generated from `gateway/build-krakend.mjs`.
+- Slot-specific KrakenD runtime files are generated under `deploy/runtime/krakend.<slot>.json`.
 - Consolidated `openapi.yaml` generation is optional and depends on the presence of the sibling service repos.
