@@ -27,9 +27,8 @@ clone_or_update() {
     git clone "$repo_url" "$repo_path"
   fi
 
-  git -C "$repo_path" fetch --prune origin
-  git -C "$repo_path" checkout "$branch"
-  git -C "$repo_path" pull --ff-only origin "$branch"
+  git -C "$repo_path" fetch --prune origin "$branch"
+  git -C "$repo_path" checkout --force -B "$branch" "origin/$branch"
 }
 
 for repo in crm-infra crm-auth crm-collab crm-media crm-frontend; do

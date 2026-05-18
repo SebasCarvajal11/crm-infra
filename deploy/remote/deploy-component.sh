@@ -50,9 +50,8 @@ ensure_repo() {
 sync_repo() {
   local path="$1"
   ensure_repo "$path"
-  git -C "$path" fetch --prune origin
-  git -C "$path" checkout "$branch"
-  git -C "$path" pull --ff-only origin "$branch"
+  git -C "$path" fetch --prune origin "$branch"
+  git -C "$path" checkout --force -B "$branch" "origin/$branch"
 }
 
 run_in_repo() {
