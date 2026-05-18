@@ -227,19 +227,39 @@ wait_for_http_ok() {
 }
 
 wait_for_compose_services_running() {
-  local project="$1"
+  local slot="$1"
   shift
+  local project output service all_running attempts
   local services=("$@")
-  local output
 
-  output="$(docker compose -p "$project" -f "$slot_compose" ps --status running --services 2>/dev/null || true)"
-  for service in "${services[@]}"; do
-    if ! grep -qx "$service" <<<"$output"; then
-      echo "Service $service is not running in project $project" >&2
-      dump_logs
-      exit 1
+  project="$(slot_project "$slot")"
+
+  for attempts in $(seq 1 30); do
+    output="$(
+      APP_SLOT="$slot" \
+      GATEWAY_SLOT_HOST_PORT="$(slot_gateway_port "$slot")" \
+      FRONTEND_SLOT_HOST_PORT="$(slot_frontend_port "$slot")" \
+      docker compose -p "$project" -f "$slot_compose" ps --status running --services 2>/dev/null || true
+    )"
+
+    all_running="true"
+    for service in "${services[@]}"; do
+      if ! grep -qx "$service" <<<"$output"; then
+        all_running="false"
+        break
+      fi
+    done
+
+    if [[ "$all_running" == "true" ]]; then
+      return 0
     fi
+
+    sleep 2
   done
+
+  echo "Not all worker services became ready in slot $slot" >&2
+  dump_logs
+  exit 1
 }
 
 write_runtime_env_files() {
@@ -352,7 +372,7 @@ start_slot_workers() {
   FRONTEND_SLOT_HOST_PORT="$frontend_port" \
   docker compose -p "$project" -f "$slot_compose" up -d auth-email-worker auth-token-cleanup-worker collab-orphan-oci-worker
 
-  wait_for_compose_services_running "$project" auth-email-worker auth-token-cleanup-worker collab-orphan-oci-worker
+  wait_for_compose_services_running "$slot" auth-email-worker auth-token-cleanup-worker collab-orphan-oci-worker
 }
 
 destroy_slot() {
