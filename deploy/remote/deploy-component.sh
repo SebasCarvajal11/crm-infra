@@ -133,13 +133,19 @@ with_dotenv() {
   )
 }
 
-host_db_url() {
+container_db_url() {
   local runtime_url="$1"
   local host_port="${POSTGRES_HOST_PORT:-5432}"
   printf '%s' "${runtime_url/postgres_db:5432/host.docker.internal:${host_port}}"
 }
 
-host_redis_url() {
+host_db_url() {
+  local runtime_url="$1"
+  local host_port="${POSTGRES_HOST_PORT:-5432}"
+  printf '%s' "${runtime_url/postgres_db:5432/127.0.0.1:${host_port}}"
+}
+
+container_redis_url() {
   local runtime_url="$1"
   local host_port="${REDIS_HOST_PORT:-6379}"
   printf '%s' "${runtime_url/redis:6379/host.docker.internal:${host_port}}"
@@ -237,18 +243,18 @@ write_runtime_env_files() {
   media_database_url="$(grep '^DATABASE_URL=' "$media_dir/.env.production" | head -n 1 | cut -d= -f2-)"
 
   cat > "$runtime_dir/auth.${slot}.env" <<EOF
-DATABASE_URL=$(host_db_url "$auth_database_url")
-REDIS_URL=$(host_redis_url "$auth_redis_url")
+DATABASE_URL=$(container_db_url "$auth_database_url")
+REDIS_URL=$(container_redis_url "$auth_redis_url")
 EOF
 
   cat > "$runtime_dir/collab.${slot}.env" <<EOF
-DATABASE_URL=$(host_db_url "$collab_database_url")
+DATABASE_URL=$(container_db_url "$collab_database_url")
 MOD_AUTH_URL=http://auth:3000
 MOD_MEDIA_URL=http://media:3002
 EOF
 
   cat > "$runtime_dir/media.${slot}.env" <<EOF
-DATABASE_URL=$(host_db_url "$media_database_url")
+DATABASE_URL=$(container_db_url "$media_database_url")
 CLAMAV_HOST=host.docker.internal
 CLAMAV_PORT=${CLAMAV_HOST_PORT:-3310}
 MOD_COLLAB_URL=http://collab:3001
