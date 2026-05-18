@@ -1,6 +1,5 @@
 {
   "_comment": "Endpoints de mod-collab — topologia oculta. /collab/* eliminado. URLs orientadas a recursos.",
-  "host": "http://host.docker.internal:3001",
   "endpoints": [
     {
       "endpoint": "/projects",

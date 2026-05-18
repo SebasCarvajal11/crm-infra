@@ -1,6 +1,5 @@
 {
   "_comment": "Endpoints de mod-media - media uploads y acceso a documentos",
-  "host": "http://host.docker.internal:3002",
   "endpoints": [
     {
       "endpoint": "/media/avatars",

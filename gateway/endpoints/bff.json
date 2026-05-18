@@ -7,7 +7,6 @@
       "timeout": "3s",
       "backends": [
         {
-          "host": "http://host.docker.internal:3000",
           "url_pattern": "/auth/me/flat",
           "allow": [
             "email",
@@ -18,7 +17,6 @@
           "group": "identity"
         },
         {
-          "host": "http://host.docker.internal:3001",
           "url_pattern": "/collab/projects?page=1&limit=100",
           "group": "projects"
         }
@@ -30,7 +28,6 @@
       "timeout": "3s",
       "backends": [
         {
-          "host": "http://host.docker.internal:3000",
           "url_pattern": "/users?page=1&limit=100",
           "allow": [
             "id",
@@ -43,7 +40,6 @@
           "group": "users"
         },
         {
-          "host": "http://host.docker.internal:3001",
           "url_pattern": "/collab/projects?page=1&limit=100",
           "group": "projects"
         }
