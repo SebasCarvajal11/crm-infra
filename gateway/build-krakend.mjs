@@ -29,7 +29,7 @@ const ENDPOINTS_DIR = resolve(__dirname, "endpoints");
 const DEFAULT_OUTPUT = resolve(__dirname, "..", "krakend.json");
 
 const GATEWAY_TRUST_SECRET =
-  "cima-local-gateway-trust-secret-do-not-use-production-2026";
+  process.env.GATEWAY_TRUST_SECRET || "cima-local-gateway-trust-secret-do-not-use-production-2026";
 
 const AUTH_HOST = process.env.KRAKEND_AUTH_HOST || "http://host.docker.internal:3000";
 const COLLAB_HOST = process.env.KRAKEND_COLLAB_HOST || "http://host.docker.internal:3001";

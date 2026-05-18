@@ -121,12 +121,13 @@ if [[ ! -f "$stack_dir/.env.production" ]]; then
   exit 1
 fi
 
+set -a
+# shellcheck disable=SC1090
+source "$stack_dir/.env.production"
+set +a
+
 (
   cd "$stack_dir"
-  set -a
-  # shellcheck disable=SC1090
-  source "$stack_dir/.env.production"
-  set +a
   docker compose -f docker-compose.prod.yml up -d postgres_db redis clamav-scanner
 )
 
@@ -178,6 +179,7 @@ run_in_repo "$stack_dir" env \
   KRAKEND_AUTH_HOST="http://auth:3000" \
   KRAKEND_COLLAB_HOST="http://collab:3001" \
   KRAKEND_MEDIA_HOST="http://media:3002" \
+  GATEWAY_TRUST_SECRET="${GATEWAY_TRUST_SECRET}" \
   CIMA_AUTH_PATH="$auth_dir" \
   CIMA_COLLAB_PATH="$collab_dir" \
   pnpm gateway:build
