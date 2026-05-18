@@ -112,6 +112,47 @@ case "$component" in
 esac
 
 if [[ "$component" == "auth" || "$component" == "full" ]]; then
+if [[ ! -f "$stack_dir/.env.production" ]]; then
+  echo "Missing environment file: $stack_dir/.env.production" >&2
+  exit 1
+fi
+
+(
+  cd "$stack_dir"
+  set -a
+  # shellcheck disable=SC1090
+  source "$stack_dir/.env.production"
+  set +a
+  docker compose -f docker-compose.prod.yml up -d postgres_db redis clamav-scanner
+)
+
+wait_for_postgres() {
+  local attempts="${1:-30}"
+  local sleep_seconds="${2:-2}"
+  local user="${POSTGRES_USER:-root}"
+  local db="${POSTGRES_DB:-crm_database}"
+
+  for ((i = 1; i <= attempts; i += 1)); do
+    if (
+      cd "$stack_dir" &&
+      set -a &&
+      # shellcheck disable=SC1090
+      source "$stack_dir/.env.production" &&
+      set +a &&
+      docker compose -f docker-compose.prod.yml exec -T postgres_db pg_isready -U "$user" -d "$db" >/dev/null 2>&1
+    ); then
+      return 0
+    fi
+    sleep "$sleep_seconds"
+  done
+
+  echo "Postgres did not become ready in time" >&2
+  exit 1
+}
+
+wait_for_postgres
+
+if [[ "$component" == "auth" || "$component" == "full" ]]; then
   run_in_repo "$auth_dir" pnpm install --frozen-lockfile
   with_dotenv "$auth_dir" "$auth_dir/.env.production" pnpm db:push
 fi
@@ -137,25 +178,22 @@ run_in_repo "$stack_dir" env \
 service_args=()
 case "$component" in
   infra)
-    service_args=(postgres_db redis clamav-scanner api-gateway)
+    service_args=(api-gateway)
     ;;
   auth)
-    service_args=(auth auth-email-worker auth-token-cleanup-worker)
+    service_args=(auth auth-email-worker auth-token-cleanup-worker api-gateway)
     ;;
   collab)
-    service_args=(collab collab-orphan-oci-worker)
+    service_args=(collab collab-orphan-oci-worker api-gateway)
     ;;
   media)
-    service_args=(media)
+    service_args=(media api-gateway)
     ;;
   frontend)
     service_args=(frontend)
     ;;
   full)
     service_args=(
-      postgres_db
-      redis
-      clamav-scanner
       auth
       auth-email-worker
       auth-token-cleanup-worker
@@ -167,11 +205,6 @@ case "$component" in
     )
     ;;
 esac
-
-if [[ ! -f "$stack_dir/.env.production" ]]; then
-  echo "Missing environment file: $stack_dir/.env.production" >&2
-  exit 1
-fi
 
 (
   cd "$stack_dir"
