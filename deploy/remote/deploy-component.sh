@@ -111,7 +111,6 @@ case "$component" in
     ;;
 esac
 
-if [[ "$component" == "auth" || "$component" == "full" ]]; then
 if [[ ! -f "$stack_dir/.env.production" ]]; then
   echo "Missing environment file: $stack_dir/.env.production" >&2
   exit 1
