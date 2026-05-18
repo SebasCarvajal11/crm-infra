@@ -154,10 +154,19 @@ container_redis_url() {
 dump_logs() {
   docker compose -p "$shared_project" -f "$shared_compose" ps || true
   if [[ -n "$target_slot" ]]; then
+    APP_SLOT="$target_slot" \
+    GATEWAY_SLOT_HOST_PORT="$(slot_gateway_port "$target_slot")" \
+    FRONTEND_SLOT_HOST_PORT="$(slot_frontend_port "$target_slot")" \
     docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" ps || true
+    APP_SLOT="$target_slot" \
+    GATEWAY_SLOT_HOST_PORT="$(slot_gateway_port "$target_slot")" \
+    FRONTEND_SLOT_HOST_PORT="$(slot_frontend_port "$target_slot")" \
     docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" logs --tail=150 auth media collab api-gateway frontend auth-email-worker auth-token-cleanup-worker collab-orphan-oci-worker || true
   fi
   if [[ -n "$previous_slot" && "$previous_slot" != "$target_slot" ]]; then
+    APP_SLOT="$previous_slot" \
+    GATEWAY_SLOT_HOST_PORT="$(slot_gateway_port "$previous_slot")" \
+    FRONTEND_SLOT_HOST_PORT="$(slot_frontend_port "$previous_slot")" \
     docker compose -p "$(slot_project "$previous_slot")" -f "$slot_compose" ps || true
   fi
 }
@@ -176,7 +185,7 @@ server {
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
     location / {
-        proxy_pass http://host.docker.internal:${frontend_port};
+        proxy_pass http://127.0.0.1:${frontend_port};
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
