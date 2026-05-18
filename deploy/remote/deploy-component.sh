@@ -126,6 +126,19 @@ set -a
 source "$stack_dir/.env.production"
 set +a
 
+if [[ -z "${GATEWAY_TRUST_SECRET:-}" && -f "$collab_dir/.env.production" ]]; then
+  GATEWAY_TRUST_SECRET="$(grep '^GATEWAY_TRUST_SECRET=' "$collab_dir/.env.production" | head -n 1 | cut -d= -f2-)"
+fi
+
+if [[ -z "${GATEWAY_TRUST_SECRET:-}" && -f "$media_dir/.env.production" ]]; then
+  GATEWAY_TRUST_SECRET="$(grep '^GATEWAY_TRUST_SECRET=' "$media_dir/.env.production" | head -n 1 | cut -d= -f2-)"
+fi
+
+if [[ -z "${GATEWAY_TRUST_SECRET:-}" ]]; then
+  echo "Missing GATEWAY_TRUST_SECRET in stack or service environments" >&2
+  exit 1
+fi
+
 (
   cd "$stack_dir"
   docker compose -f docker-compose.prod.yml up -d postgres_db redis clamav-scanner
