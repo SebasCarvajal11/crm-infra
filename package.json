@@ -1,23 +1,26 @@
 {
-  "name": "cima-crm-proyecto-de-grado",
+  "name": "crm-infra",
   "version": "1.0.0",
   "description": "",
-  "main": "test-bff.js",
+  "main": "gateway/build-krakend.mjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "preinstall": "npx only-allow pnpm"
+    "gateway:build": "node gateway/build-krakend.mjs",
+    "smoke:multirepo": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-multirepo.ps1",
+    "verify:frontend-ui": "pnpm dlx @playwright/test test -c scripts/playwright.cutover.config.js",
+    "verify:multirepo": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-multirepo.ps1",
+    "preinstall": "pnpm dlx only-allow pnpm"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SebasCarvajal11/crm-cima.git"
+    "url": "git+https://github.com/SebasCarvajal11/crm-infra.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/SebasCarvajal11/crm-cima/issues"
+    "url": "https://github.com/SebasCarvajal11/crm-infra/issues"
   },
-  "homepage": "https://github.com/SebasCarvajal11/crm-cima#readme",
+  "homepage": "https://github.com/SebasCarvajal11/crm-infra#readme",
   "dependencies": {
     "yaml": "^2.9.0"
   }

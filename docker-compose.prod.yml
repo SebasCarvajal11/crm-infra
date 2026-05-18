@@ -1,154 +1,41 @@
-version: '3.8'
-
 services:
   postgres_db:
     image: postgres:16-alpine
-    container_name: crm_postgres
     restart: always
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: rootpassword # CAMBIAR EN PRODUCCIÓN
-      POSTGRES_DB: crm_database
+      POSTGRES_USER: ${POSTGRES_USER:-root}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-crm_database}
     volumes:
-      - pgdata_prod:/var/lib/postgresql/data
+      - postgres_data_prod:/var/lib/postgresql/data
     networks:
       - crm_net
 
   redis:
     image: redis:7-alpine
-    container_name: crm_redis
     restart: always
-    networks:
-      - crm_net
-
-  mod-auth:
-    build: ./mod-auth
-    container_name: crm_mod_auth
-    restart: always
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgres://root:rootpassword@postgres_db:5432/crm_database
-      - REDIS_URL=redis://redis:6379
-      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY} # Cargar desde .env real
-      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
-      - JWT_KID=${JWT_KID:-mod-auth-rsa-1}
-      - APP_PUBLIC_URL=${APP_PUBLIC_URL}
-      - MAIL_FROM=${MAIL_FROM}
-      - MAIL_TRANSPORT=${MAIL_TRANSPORT:-smtp}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_SECURE=${SMTP_SECURE:-false}
-      - SMTP_REQUIRE_TLS=${SMTP_REQUIRE_TLS:-true}
-      - SMTP_TLS_SERVERNAME=${SMTP_TLS_SERVERNAME}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASS=${SMTP_PASS}
-      - TRUST_GATEWAY_JWT_HEADERS=true
-      - GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
-    depends_on:
-      - postgres_db
-      - redis
-    networks:
-      - crm_net
-
-  mod-auth-worker:
-    build: ./mod-auth
-    container_name: crm_mod_auth_worker
-    restart: always
-    command: [ "npx", "tsx", "src/workers/email.worker.ts" ]
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgres://root:rootpassword@postgres_db:5432/crm_database
-      - REDIS_URL=redis://redis:6379
-      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY}
-      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
-      - JWT_KID=${JWT_KID:-mod-auth-rsa-1}
-      - APP_PUBLIC_URL=${APP_PUBLIC_URL}
-      - MAIL_FROM=${MAIL_FROM}
-      - MAIL_TRANSPORT=${MAIL_TRANSPORT:-smtp}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_SECURE=${SMTP_SECURE:-false}
-      - SMTP_REQUIRE_TLS=${SMTP_REQUIRE_TLS:-true}
-      - SMTP_TLS_SERVERNAME=${SMTP_TLS_SERVERNAME}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASS=${SMTP_PASS}
-    depends_on:
-      - redis
-    networks:
-      - crm_net
-
-  mod-collab:
-    build: ./mod-collab
-    container_name: crm_mod_collab
-    restart: always
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgres://root:rootpassword@postgres_db:5432/crm_database
-      - TRUST_GATEWAY_JWT_HEADERS=true
-      - GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
-      - MOD_AUTH_URL=http://mod-auth:3000
-      - OCI_NAMESPACE=dummy
-      - OCI_REGION=dummy
-      - OCI_ACCESS_KEY=dummy
-      - OCI_SECRET_KEY=dummy
-      - OCI_BUCKET=dummy
-    depends_on:
-      - postgres_db
+    command: redis-server --save "" --appendonly no
     networks:
       - crm_net
 
   clamav-scanner:
     image: clamav/clamav:latest
-    container_name: crm_clamav_scanner
     restart: always
-    networks:
-      - crm_net
-
-  mod-media:
-    build: ./mod-media
-    container_name: crm_mod_media
-    restart: always
-    environment:
-      - NODE_ENV=production
-      - PORT=3002
-      - DATABASE_URL=postgres://root:rootpassword@postgres_db:5432/crm_database
-      - OCI_CONFIG_FILE_PATH=${OCI_CONFIG_FILE_PATH}
-      - OCI_CONFIG_PROFILE=${OCI_CONFIG_PROFILE:-DEFAULT}
-      - OCI_REGION=${OCI_REGION}
-      - OCI_NAMESPACE=${OCI_NAMESPACE}
-      - OCI_BUCKET_AVATARS_PUBLIC=${OCI_BUCKET_AVATARS_PUBLIC}
-      - OCI_BUCKET_DOCS_PRIVATE=${OCI_BUCKET_DOCS_PRIVATE}
-      - CLAMAV_HOST=clamav-scanner
-      - CLAMAV_PORT=3310
-      - DOC_PAR_TTL_SECONDS=${DOC_PAR_TTL_SECONDS:-300}
-    depends_on:
-      - postgres_db
-      - clamav-scanner
     networks:
       - crm_net
 
   api-gateway:
     image: krakend:latest
-    container_name: crm_krakend
     restart: always
+    ports:
+      - "${GATEWAY_HOST_PORT:-8080}:8080"
     volumes:
       - ./krakend.json:/etc/krakend/krakend.json:ro
       - ./gateway/output:/etc/krakend/static:ro
     depends_on:
-      - mod-auth
-      - mod-collab
-      - mod-media
-    networks:
-      - crm_net
-
-  frontend:
-    build: ./crm-frontend
-    container_name: crm_frontend
-    restart: always
-    ports:
-      - "80:80" # Expuesto al mundo
-    depends_on:
-      - api-gateway
+      - postgres_db
+      - redis
+      - clamav-scanner
     networks:
       - crm_net
 
@@ -157,4 +44,4 @@ networks:
     driver: bridge
 
 volumes:
-  pgdata_prod:
+  postgres_data_prod:

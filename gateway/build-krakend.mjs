@@ -16,12 +16,14 @@
  *   node gateway/build-krakend.mjs --output gateway/output/krakend.json
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(__dirname, "..");
+const WORKSPACE_ROOT = resolve(REPO_ROOT, "..");
 
 const ENDPOINTS_DIR = resolve(__dirname, "endpoints");
 const DEFAULT_OUTPUT = resolve(__dirname, "..", "krakend.json");
@@ -33,9 +35,36 @@ const AUTH_HOST = process.env.KRAKEND_AUTH_HOST || "http://host.docker.internal:
 const COLLAB_HOST = process.env.KRAKEND_COLLAB_HOST || "http://host.docker.internal:3001";
 const MEDIA_HOST = process.env.KRAKEND_MEDIA_HOST || "http://host.docker.internal:3002";
 
-const AUTH_OPENAPI = resolve(__dirname, "..", "mod-auth", "openapi", "openapi.yaml");
-const COLLAB_OPENAPI = resolve(__dirname, "..", "mod-collab", "openapi", "openapi.yaml");
 const OPENAPI_OUTPUT = resolve(__dirname, "output", "openapi.yaml");
+
+function resolveRepoPath(envVarName, siblingName) {
+  const candidates = [
+    process.env[envVarName],
+    resolve(WORKSPACE_ROOT, siblingName),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const packageJson = resolve(candidate, "package.json");
+    if (existsSync(packageJson)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function resolveOpenApiPath(envVarName, siblingName) {
+  const repoPath = resolveRepoPath(envVarName, siblingName);
+  if (!repoPath) return null;
+
+  const openApiPath = resolve(repoPath, "openapi", "openapi.yaml");
+  if (!existsSync(openApiPath)) return null;
+
+  return openApiPath;
+}
+
+const AUTH_OPENAPI = resolveOpenApiPath("CIMA_AUTH_PATH", "crm-auth");
+const COLLAB_OPENAPI = resolveOpenApiPath("CIMA_COLLAB_PATH", "crm-collab");
 
 // ── Templates ──────────────────────────────────────────────────────────────────
 
@@ -287,6 +316,18 @@ function remapCollabPaths(collabPaths, routeMap) {
 }
 
 function generateOpenAPI() {
+  if (!AUTH_OPENAPI || !COLLAB_OPENAPI) {
+    const missing = [];
+    if (!AUTH_OPENAPI) missing.push("crm-auth/openapi/openapi.yaml");
+    if (!COLLAB_OPENAPI) missing.push("crm-collab/openapi/openapi.yaml");
+
+    console.warn(
+      `! openapi.yaml consolidado omitido: no se encontraron ${missing.join(" y ")}. ` +
+        "Configura CIMA_AUTH_PATH y/o CIMA_COLLAB_PATH, o coloca los repos como hermanos de crm-infra.",
+    );
+    return;
+  }
+
   const authSpec = parseYaml(readFileSync(AUTH_OPENAPI, "utf-8"));
   const collabSpec = parseYaml(readFileSync(COLLAB_OPENAPI, "utf-8"));
 

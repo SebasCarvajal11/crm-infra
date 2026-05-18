@@ -50,7 +50,7 @@
 ## URLs de Acceso
 
 - Frontend: http://localhost:5173
-- API Gateway (KrakenD): http://localhost:8080
+- API Gateway (KrakenD): http://localhost:18080
 - mod-auth (directo): http://localhost:3000
 - mod-collab (directo): http://localhost:3001
 - Swagger mod-collab: http://localhost:3001/docs
@@ -59,25 +59,25 @@
 
 ```bash
 # Iniciar contenedores
-docker compose up -d
+COMPOSE_PROJECT_NAME=crm_infra_local docker compose up -d
 
 # Ver logs
-docker logs crm_krakend_gateway -f
-docker logs crm_postgres_db -f
-docker logs crm_redis -f
+docker compose -p crm_infra_local logs -f api-gateway
+docker compose -p crm_infra_local logs -f postgres_db
+docker compose -p crm_infra_local logs -f redis
 
 # Detener contenedores
-docker compose down
+COMPOSE_PROJECT_NAME=crm_infra_local docker compose down
 
 # Reiniciar
-docker compose restart
+COMPOSE_PROJECT_NAME=crm_infra_local docker compose restart
 ```
 
 ## Comandos de Desarrollo
 
-### mod-auth
+### crm-auth
 ```bash
-cd mod-auth
+cd ../crm-auth
 pnpm dev            # Iniciar servidor desarrollo
 pnpm worker:email   # Procesar cola de correos
 pnpm db:push        # Aplicar esquema a BD
@@ -85,9 +85,9 @@ pnpm db:seed        # Poblar con datos de prueba
 pnpm db:studio      # Abrir Drizzle Studio
 ```
 
-### mod-collab
+### crm-collab
 ```bash
-cd mod-collab
+cd ../crm-collab
 pnpm dev            # Iniciar servidor desarrollo
 pnpm db:push        # Aplicar esquema a BD
 pnpm db:seed        # Poblar con datos de prueba
@@ -96,7 +96,7 @@ pnpm db:studio      # Abrir Drizzle Studio
 
 ### crm-frontend
 ```bash
-cd crm-frontend
+cd ../crm-frontend
 pnpm dev            # Iniciar servidor desarrollo
 pnpm build          # Build de produccion
 ```
@@ -105,9 +105,9 @@ pnpm build          # Build de produccion
 
 ```bash
 # 1. Limpiar tablas de collab
-docker exec crm_postgres_db psql -U root -d crm_database -c "TRUNCATE schema_collab.projects CASCADE;"
+docker compose -p crm_infra_local exec postgres_db psql -U root -d crm_database -c "TRUNCATE schema_collab.projects CASCADE;"
 
 # 2. Re-ejecutar seeds
-cd mod-auth && pnpm db:seed
-cd mod-collab && pnpm db:seed
+cd ../crm-auth && pnpm db:seed
+cd ../crm-collab && pnpm db:seed
 ```

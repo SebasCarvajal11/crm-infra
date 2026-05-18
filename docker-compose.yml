@@ -1,7 +1,6 @@
 services:
   # Tu base de datos actual
   postgres_db:
-    container_name: crm_postgres_db
     image: postgres:15-alpine
     restart: always
     environment:
@@ -9,19 +8,18 @@ services:
       POSTGRES_PASSWORD: rootpassword
       POSTGRES_DB: crm_database
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-15432}:5432"
     volumes:
-      - pgdata_local:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
 
   # Redis — cola de emails BullMQ para mod-auth (y otros servicios si lo necesitan).
   # Desde el host (Node en tu maquina): REDIS_URL=redis://127.0.0.1:6379
   # Desde otro contenedor en esta red: REDIS_URL=redis://redis:6379
   redis:
     image: redis:7-alpine
-    container_name: crm_redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-16379}:6379"
     # Sin persistencia: cola de emails no necesita sobrevivir a reinicios del daemon.
     command: redis-server --save "" --appendonly no
     healthcheck:
@@ -32,19 +30,17 @@ services:
 
   clamav-scanner:
     image: clamav/clamav:latest
-    container_name: crm_clamav_scanner
     restart: unless-stopped
     ports:
-      - "3310:3310"
+      - "${CLAMAV_HOST_PORT:-13310}:3310"
 
   # --- API Gateway (KrakenD): único punto de entrada del SPA hacia los MS ---
   # Requiere mod-auth escuchando en el host :3000 (npm start en mod-auth).
   # El contenedor usa host.docker.internal para alcanzar ese proceso.
   api-gateway:
     image: krakend:latest
-    container_name: crm_krakend_gateway
     ports:
-      - "8080:8080"
+      - "${GATEWAY_HOST_PORT:-18080}:8080"
     volumes:
       - ./krakend.json:/etc/krakend/krakend.json:ro
       - ./gateway/output:/etc/krakend/static:ro
@@ -55,4 +51,4 @@ services:
       - clamav-scanner
 
 volumes:
-  pgdata_local:
+  postgres_data:

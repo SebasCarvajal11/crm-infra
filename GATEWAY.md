@@ -51,7 +51,7 @@ gateway/
 
 **`krakend.json` en la raíz** es una copia del output. Se regenera con:
 ```bash
-node gateway/build-krakend.mjs
+pnpm gateway:build
 ```
 
 El script `start-project.ps1` ejecuta esto automáticamente antes de levantar Docker.
@@ -77,7 +77,7 @@ El campo `endpoint` es la URL pública (sin `/collab/`). El campo `backend_url` 
 
 **Paso 2 — Regenerar:**
 ```bash
-node gateway/build-krakend.mjs
+pnpm gateway:build
 ```
 
 **Paso 3 — Crear la ruta en el microservicio** (mod-collab en este caso).
@@ -232,7 +232,7 @@ const inventoryDef = loadEndpoints("inventory.json");
 
 ```bash
 # Regenerar krakend.json
-node gateway/build-krakend.mjs
+pnpm gateway:build
 
 # Verificar TypeScript (mod-auth)
 cd mod-auth && npx tsc --noEmit
