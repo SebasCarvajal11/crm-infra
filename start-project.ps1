@@ -191,11 +191,11 @@ function Test-HttpEndpoint([string]$Url, [int]$Attempts = 20, [int]$DelaySeconds
   return $false
 }
 
-function Wait-TcpPort([string]$Host, [int]$Port, [int]$Attempts = 30, [int]$DelaySeconds = 2) {
+function Wait-TcpPort([string]$TargetHost, [int]$Port, [int]$Attempts = 30, [int]$DelaySeconds = 2) {
   for ($i = 0; $i -lt $Attempts; $i++) {
     try {
       $client = New-Object System.Net.Sockets.TcpClient
-      $async = $client.BeginConnect($Host, $Port, $null, $null)
+      $async = $client.BeginConnect($TargetHost, $Port, $null, $null)
       $connected = $async.AsyncWaitHandle.WaitOne(2000, $false)
       if ($connected -and $client.Connected) {
         $client.EndConnect($async)
@@ -342,7 +342,7 @@ Prepare-PnpmProject -Path $modMedia -Name "crm-media"
 Prepare-PnpmProject -Path $frontend -Name "crm-frontend"
 
 Write-Step "Esperando Postgres local (localhost:$PostgresHostPort)"
-if (-not (Wait-TcpPort -Host "127.0.0.1" -Port ([int]$PostgresHostPort) -Attempts 30 -DelaySeconds 2)) {
+if (-not (Wait-TcpPort -TargetHost "127.0.0.1" -Port ([int]$PostgresHostPort) -Attempts 30 -DelaySeconds 2)) {
   Write-Host "ERROR: Postgres no quedo disponible en localhost:$PostgresHostPort" -ForegroundColor Red
   exit 1
 }

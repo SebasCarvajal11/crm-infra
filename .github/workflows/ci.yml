@@ -8,6 +8,10 @@ on:
 jobs:
   gateway-build:
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-postgres-password
+      GATEWAY_HOST_PORT: "8080"
+      FRONTEND_HOST_PORT: "80"
 
     steps:
       - name: Checkout
@@ -33,5 +37,8 @@ jobs:
       - name: Validate Docker Compose
         run: docker compose -f docker-compose.yml config > /dev/null
 
-      - name: Assert generated OpenAPI
-        run: test -f gateway/output/openapi.yaml
+      - name: Validate production Compose
+        run: docker compose -f docker-compose.prod.yml config > /dev/null
+
+      - name: Assert runtime gateway config
+        run: test -f krakend.json

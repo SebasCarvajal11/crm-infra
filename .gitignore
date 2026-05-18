@@ -1,32 +1,35 @@
-# Dependencias
 node_modules/
 .pnp
 .pnp.js
+.pnpm-store/
 
-# Compilados
 dist/
 build/
 out/
 .tanstack/
+coverage/
 
-# Variables de entorno y secretos (NUNCA SE SUBEN)
 .env
 .env.local
 .env.*.local
 *.pem
 *.key
 cookies.jar
+*.pid
+*.out
+*.err
 
-# Logs y SO
-logs
+logs/
 *.log
-npm-debug.log*
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+*.tmp
+*.temp
+*.orig
+*.tsbuildinfo
 
-# Scripts de prueba/depuracion
-test-*.js
-ssh-key-2026-05-11.key
-
-# Artefactos generados
-gateway/output/openapi.yaml
+gateway/output/
+playwright-report/
+test-results/

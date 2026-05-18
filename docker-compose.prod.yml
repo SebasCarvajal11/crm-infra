@@ -10,6 +10,11 @@ services:
       - postgres_data_prod:/var/lib/postgresql/data
     networks:
       - crm_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-root} -d ${POSTGRES_DB:-crm_database}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
@@ -17,10 +22,125 @@ services:
     command: redis-server --save "" --appendonly no
     networks:
       - crm_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   clamav-scanner:
-    image: clamav/clamav:latest
+    image: clamav/clamav-debian:latest
     restart: always
+    volumes:
+      - clamav_data_prod:/var/lib/clamav
+    networks:
+      - crm_net
+
+  auth:
+    build:
+      context: ../crm-auth
+    restart: always
+    env_file:
+      - ../crm-auth/.env.production
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - crm_net
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+
+  auth-email-worker:
+    build:
+      context: ../crm-auth
+    restart: always
+    command: ["pnpm", "worker:email"]
+    env_file:
+      - ../crm-auth/.env.production
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth:
+        condition: service_started
+    networks:
+      - crm_net
+
+  auth-token-cleanup-worker:
+    build:
+      context: ../crm-auth
+    restart: always
+    command: ["pnpm", "worker:cleanup"]
+    env_file:
+      - ../crm-auth/.env.production
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth:
+        condition: service_started
+    networks:
+      - crm_net
+
+  media:
+    build:
+      context: ../crm-media
+    restart: always
+    env_file:
+      - ../crm-media/.env.production
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      clamav-scanner:
+        condition: service_started
+    networks:
+      - crm_net
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+
+  collab:
+    build:
+      context: ../crm-collab
+    restart: always
+    env_file:
+      - ../crm-collab/.env.production
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      auth:
+        condition: service_started
+      media:
+        condition: service_started
+    networks:
+      - crm_net
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+
+  collab-orphan-oci-worker:
+    build:
+      context: ../crm-collab
+    restart: always
+    command: ["pnpm", "worker:orphan-oci"]
+    env_file:
+      - ../crm-collab/.env.production
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      collab:
+        condition: service_started
     networks:
       - crm_net
 
@@ -33,9 +153,24 @@ services:
       - ./krakend.json:/etc/krakend/krakend.json:ro
       - ./gateway/output:/etc/krakend/static:ro
     depends_on:
-      - postgres_db
-      - redis
-      - clamav-scanner
+      auth:
+        condition: service_started
+      collab:
+        condition: service_started
+      media:
+        condition: service_started
+    networks:
+      - crm_net
+
+  frontend:
+    build:
+      context: ../crm-frontend
+    restart: always
+    ports:
+      - "${FRONTEND_HOST_PORT:-80}:80"
+    depends_on:
+      api-gateway:
+        condition: service_started
     networks:
       - crm_net
 
@@ -45,3 +180,4 @@ networks:
 
 volumes:
   postgres_data_prod:
+  clamav_data_prod:

@@ -1,8 +1,9 @@
 {
   "name": "crm-infra",
   "version": "1.0.0",
-  "description": "",
+  "description": "Platform orchestration, gateway generation, and local infrastructure for the CIMA CRM multi-repo stack.",
   "main": "gateway/build-krakend.mjs",
+  "packageManager": "pnpm@11.1.1",
   "scripts": {
     "gateway:build": "node gateway/build-krakend.mjs",
     "smoke:multirepo": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-multirepo.ps1",
@@ -14,9 +15,13 @@
     "type": "git",
     "url": "git+https://github.com/SebasCarvajal11/crm-infra.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "krakend",
+    "docker-compose",
+    "platform",
+    "microservices"
+  ],
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/SebasCarvajal11/crm-infra/issues"
   },

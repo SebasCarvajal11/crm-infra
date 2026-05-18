@@ -1,0 +1,63 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Component to deploy from the production stack
+        required: true
+        default: infra
+        type: choice
+        options:
+          - infra
+          - auth
+          - collab
+          - media
+          - frontend
+          - full
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Prepare SSH key
+        shell: bash
+        env:
+          DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${DEPLOY_SSH_PORT:-22}" -H "$DEPLOY_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy selected component
+        shell: bash
+        env:
+          DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
+          DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
+          DEPLOY_BASE_DIR: ${{ secrets.DEPLOY_BASE_DIR }}
+          MANUAL_COMPONENT: ${{ inputs.component }}
+        run: |
+          component="${MANUAL_COMPONENT:-infra}"
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            component="infra"
+          fi
+          ssh -i ~/.ssh/id_ed25519 -p "${DEPLOY_SSH_PORT:-22}" -o StrictHostKeyChecking=yes "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" \
+            "export DEPLOY_BASE_DIR='$DEPLOY_BASE_DIR'; export DEPLOY_BRANCH='main'; bash '$DEPLOY_BASE_DIR/crm-infra/deploy/remote/deploy-component.sh' '$component'"
