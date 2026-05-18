@@ -115,6 +115,7 @@ The platform uses a split but standardized pipeline model:
 - the edge proxy only switches to the inactive slot after the new slot passes local health verification
 - the gateway is never exposed publicly; `/api` stays behind the frontend/edge chain
 - shared dependencies (`postgres_db`, `redis`, `clamav-scanner`) are consumed over a dedicated Docker backplane instead of `host.docker.internal`, which avoids host-routing drift across Docker Engine updates
+- CSP allowances for external browser connections are controlled from `crm-infra/.env.production` through `CSP_CONNECT_SRC_EXTRA` and `CSP_IMG_SRC_EXTRA`; when unset, deploy infers the OCI Object Storage origin from `OCI_REGION` in `crm-media` or `crm-collab`
 
 This is the baseline expected for future modules: independent CI in the module repo, centralized deployment orchestration in `crm-infra`, and explicit environment/secret management outside source control.
 

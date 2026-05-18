@@ -179,8 +179,22 @@ dump_logs() {
   fi
 }
 
+append_csp_sources() {
+  local base="$1"
+  local extra="${2:-}"
+  extra="$(printf '%s' "$extra" | xargs)"
+  if [[ -z "$extra" ]]; then
+    printf '%s' "$base"
+    return
+  fi
+  printf '%s %s' "$base" "$extra"
+}
+
 render_edge_config() {
   local frontend_port="$1"
+  local connect_src img_src
+  connect_src="$(append_csp_sources "connect-src 'self'" "${CSP_CONNECT_SRC_EXTRA:-}")"
+  img_src="$(append_csp_sources "img-src 'self' data: blob:" "${CSP_IMG_SRC_EXTRA:-}")"
   cat > "$runtime_dir/edge.conf" <<EOF
 server {
     listen 80;
@@ -190,7 +204,7 @@ server {
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; ${img_src}; font-src 'self' data:; ${connect_src}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
     location / {
         proxy_pass http://127.0.0.1:${frontend_port};
@@ -446,6 +460,22 @@ fi
 if [[ -z "${GATEWAY_TRUST_SECRET:-}" ]]; then
   echo "Missing GATEWAY_TRUST_SECRET in stack or service environments" >&2
   exit 1
+fi
+
+if [[ -z "${CSP_CONNECT_SRC_EXTRA:-}" || -z "${CSP_IMG_SRC_EXTRA:-}" ]]; then
+  oci_region="$(grep '^OCI_REGION=' "$media_dir/.env.production" 2>/dev/null | head -n 1 | cut -d= -f2-)"
+  if [[ -z "$oci_region" ]]; then
+    oci_region="$(grep '^OCI_REGION=' "$collab_dir/.env.production" 2>/dev/null | head -n 1 | cut -d= -f2-)"
+  fi
+  if [[ -n "$oci_region" ]]; then
+    oci_origin="https://objectstorage.${oci_region}.oraclecloud.com"
+    if [[ -z "${CSP_CONNECT_SRC_EXTRA:-}" ]]; then
+      CSP_CONNECT_SRC_EXTRA="$oci_origin"
+    fi
+    if [[ -z "${CSP_IMG_SRC_EXTRA:-}" ]]; then
+      CSP_IMG_SRC_EXTRA="$oci_origin"
+    fi
+  fi
 fi
 
 if [[ -f "$active_slot_file" ]]; then
