@@ -83,6 +83,12 @@ with_dotenv() {
   )
 }
 
+host_db_url() {
+  local runtime_url="$1"
+  local host_port="${POSTGRES_HOST_PORT:-5432}"
+  printf '%s' "${runtime_url/postgres_db:5432/127.0.0.1:${host_port}}"
+}
+
 sync_repo "$stack_dir"
 
 auth_dir="$(repo_path crm-auth)"
@@ -153,17 +159,20 @@ wait_for_postgres
 
 if [[ "$component" == "auth" || "$component" == "full" ]]; then
   run_in_repo "$auth_dir" pnpm install --frozen-lockfile
-  with_dotenv "$auth_dir" "$auth_dir/.env.production" pnpm db:push
+  auth_database_url="$(grep '^DATABASE_URL=' "$auth_dir/.env.production" | cut -d= -f2-)"
+  with_dotenv "$auth_dir" "$auth_dir/.env.production" env DATABASE_URL="$(host_db_url "$auth_database_url")" pnpm db:push
 fi
 
 if [[ "$component" == "collab" || "$component" == "full" ]]; then
   run_in_repo "$collab_dir" pnpm install --frozen-lockfile
-  with_dotenv "$collab_dir" "$collab_dir/.env.production" pnpm db:push
+  collab_database_url="$(grep '^DATABASE_URL=' "$collab_dir/.env.production" | cut -d= -f2-)"
+  with_dotenv "$collab_dir" "$collab_dir/.env.production" env DATABASE_URL="$(host_db_url "$collab_database_url")" pnpm db:push
 fi
 
 if [[ "$component" == "media" || "$component" == "full" ]]; then
   run_in_repo "$media_dir" pnpm install --frozen-lockfile
-  with_dotenv "$media_dir" "$media_dir/.env.production" pnpm db:push
+  media_database_url="$(grep '^DATABASE_URL=' "$media_dir/.env.production" | cut -d= -f2-)"
+  with_dotenv "$media_dir" "$media_dir/.env.production" env DATABASE_URL="$(host_db_url "$media_database_url")" pnpm db:push
 fi
 
 run_in_repo "$stack_dir" env \
