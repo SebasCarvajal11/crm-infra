@@ -31,41 +31,41 @@ jobs:
 
     steps:
       - name: Checkout infra
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: crm-infra
 
       - name: Checkout auth
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-auth
           path: crm-auth
 
       - name: Checkout collab
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-collab
           path: crm-collab
 
       - name: Checkout media
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-media
           path: crm-media
 
       - name: Checkout frontend
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-frontend
           path: crm-frontend
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 11.1.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
