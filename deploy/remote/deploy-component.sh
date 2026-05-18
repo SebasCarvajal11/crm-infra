@@ -22,7 +22,7 @@ require_command() {
   fi
 }
 
-for cmd in git docker pnpm node flock; do
+for cmd in git docker pnpm node flock curl; do
   require_command "$cmd"
 done
 
@@ -170,6 +170,34 @@ wait_for_postgres() {
 
 wait_for_postgres
 
+dump_service_logs() {
+  (
+    cd "$stack_dir"
+    docker compose -f docker-compose.prod.yml ps || true
+    if [[ ${#service_args[@]} -gt 0 ]]; then
+      docker compose -f docker-compose.prod.yml logs --tail=120 "${service_args[@]}" || true
+    fi
+  )
+}
+
+wait_for_http_ok() {
+  local name="$1"
+  local url="$2"
+  local attempts="${3:-30}"
+  local sleep_seconds="${4:-2}"
+
+  for ((i = 1; i <= attempts; i += 1)); do
+    if curl --silent --show-error --fail --max-time 10 "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep "$sleep_seconds"
+  done
+
+  echo "Health verification failed for $name at $url" >&2
+  dump_service_logs
+  exit 1
+}
+
 if [[ "$component" == "auth" || "$component" == "full" ]]; then
   run_in_repo "$auth_dir" pnpm install --frozen-lockfile
   auth_database_url="$(grep '^DATABASE_URL=' "$auth_dir/.env.production" | cut -d= -f2-)"
@@ -236,3 +264,19 @@ esac
   set +a
   docker compose -f docker-compose.prod.yml up -d --build "${service_args[@]}"
 )
+
+gateway_health_url="http://127.0.0.1:${GATEWAY_HOST_PORT:-8080}/health"
+frontend_health_url="http://127.0.0.1:${FRONTEND_HOST_PORT:-80}/"
+
+case "$component" in
+  infra|auth|collab|media)
+    wait_for_http_ok "api-gateway" "$gateway_health_url"
+    ;;
+  frontend)
+    wait_for_http_ok "frontend" "$frontend_health_url"
+    ;;
+  full)
+    wait_for_http_ok "api-gateway" "$gateway_health_url"
+    wait_for_http_ok "frontend" "$frontend_health_url"
+    ;;
+esac
