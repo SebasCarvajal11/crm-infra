@@ -28,6 +28,8 @@ const AUTH_HOST = requiredUrlEnv("KRAKEND_AUTH_HOST");
 const COLLAB_HOST = requiredUrlEnv("KRAKEND_COLLAB_HOST");
 const MEDIA_HOST = requiredUrlEnv("KRAKEND_MEDIA_HOST");
 const GATEWAY_PORT = optionalPortEnv("KRAKEND_PORT", 8080);
+const ENDPOINTS_SOURCE = optionalEnumEnv("KRAKEND_ENDPOINTS_SOURCE", ["auto", "http", "file"], "auto");
+const ENDPOINTS_HTTP_TIMEOUT_MS = optionalPositiveIntegerEnv("KRAKEND_ENDPOINTS_HTTP_TIMEOUT_MS", 5000);
 
 function requiredEnv(name) {
   const value = process.env[name]?.trim();
@@ -59,6 +61,26 @@ function optionalPortEnv(name, fallback) {
     throw new Error(`${name} debe ser un puerto TCP valido`);
   }
   return value;
+}
+
+function optionalPositiveIntegerEnv(name, fallback) {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${name} debe ser un entero positivo`);
+  }
+  return value;
+}
+
+function optionalEnumEnv(name, allowed, fallback) {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  if (!allowed.includes(raw)) {
+    throw new Error(`${name} debe ser uno de: ${allowed.join(", ")}`);
+  }
+  return raw;
 }
 
 // â”€â”€ Templates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -284,7 +306,32 @@ function buildBffEndpoint(def) {
 
 const AUTH_HEADERS_WITH_BODY = ["Content-Type", ...AUTH_HEADERS_BASE];
 
-function loadServiceEndpoints(serviceName, defaultHost) {
+function serviceEndpointsUrl(serviceName, defaultHost) {
+  const envName = `KRAKEND_${serviceName.toUpperCase()}_ENDPOINTS_URL`;
+  return (process.env[envName]?.trim() || `${defaultHost}/_gateway/endpoints.json`).replace(/\/+$/, "");
+}
+
+async function fetchJsonWithTimeout(url) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ENDPOINTS_HTTP_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function loadServiceEndpointsFromFile(serviceName, defaultHost) {
   const hostPath = resolve(__dirname, "..", "..", `crm-${serviceName}`, "gateway", "endpoints.json");
   const dockerPath = resolve(__dirname, "..", `crm-${serviceName}`, "gateway", "endpoints.json");
 
@@ -306,6 +353,27 @@ function loadServiceEndpoints(serviceName, defaultHost) {
   };
 }
 
+async function loadServiceEndpoints(serviceName, defaultHost) {
+  if (ENDPOINTS_SOURCE !== "file") {
+    const url = serviceEndpointsUrl(serviceName, defaultHost);
+
+    try {
+      const data = await fetchJsonWithTimeout(url);
+      return {
+        host: data.host || defaultHost,
+        endpoints: data.endpoints || [],
+      };
+    } catch (err) {
+      if (ENDPOINTS_SOURCE === "http") {
+        throw new Error(`No se pudo descargar endpoints.json de crm-${serviceName} desde ${url}: ${err.message}`);
+      }
+      console.warn(`No se pudo descargar endpoints.json de crm-${serviceName} desde ${url}. Se usara fallback por archivo: ${err.message}`);
+    }
+  }
+
+  return loadServiceEndpointsFromFile(serviceName, defaultHost);
+}
+
 function loadBffEndpoints() {
   const bffPath = resolve(__dirname, "bff.json");
   try {
@@ -319,14 +387,14 @@ function loadBffEndpoints() {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-function main() {
+async function main() {
   const outputArg = process.argv.indexOf("--output");
   const outputPath =
     outputArg !== -1 ? resolve(process.argv[outputArg + 1]) : DEFAULT_OUTPUT;
 
-  const authData = loadServiceEndpoints("auth", AUTH_HOST);
-  const collabData = loadServiceEndpoints("collab", COLLAB_HOST);
-  const mediaData = loadServiceEndpoints("media", MEDIA_HOST);
+  const authData = await loadServiceEndpoints("auth", AUTH_HOST);
+  const collabData = await loadServiceEndpoints("collab", COLLAB_HOST);
+  const mediaData = await loadServiceEndpoints("media", MEDIA_HOST);
   const bffEndpoints = loadBffEndpoints();
 
   let publicCount = 0;
@@ -404,4 +472,7 @@ function main() {
 
 }
 
-main();
+main().catch((err) => {
+  console.error(err.message);
+  process.exit(1);
+});

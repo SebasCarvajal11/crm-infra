@@ -385,6 +385,7 @@ build_gateway_for_slot() {
     KRAKEND_AUTH_HOST="${KRAKEND_AUTH_HOST}" \
     KRAKEND_COLLAB_HOST="${KRAKEND_COLLAB_HOST}" \
     KRAKEND_MEDIA_HOST="${KRAKEND_MEDIA_HOST}" \
+    KRAKEND_ENDPOINTS_SOURCE="${KRAKEND_ENDPOINTS_SOURCE:-file}" \
     KRAKEND_PORT="8080" \
     GATEWAY_TRUST_SECRET="${GATEWAY_TRUST_SECRET}" \
     pnpm gateway:build --output "$runtime_dir/krakend.${slot}.json"

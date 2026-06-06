@@ -61,13 +61,18 @@ services:
       KRAKEND_AUTH_HOST: ${KRAKEND_AUTH_HOST:-http://crm-auth:3000}
       KRAKEND_COLLAB_HOST: ${KRAKEND_COLLAB_HOST:-http://crm-collab:3001}
       KRAKEND_MEDIA_HOST: ${KRAKEND_MEDIA_HOST:-http://crm-media:3002}
+      KRAKEND_ENDPOINTS_SOURCE: http
     volumes:
       - ./gateway:/workspace/gateway:ro
-      - ../crm-auth/gateway:/workspace/crm-auth/gateway:ro
-      - ../crm-collab/gateway:/workspace/crm-collab/gateway:ro
-      - ../crm-media/gateway:/workspace/crm-media/gateway:ro
       - krakend_config:/output
     command: ["node", "gateway/build-krakend.mjs", "--output", "/output/krakend.json"]
+    depends_on:
+      crm-auth:
+        condition: service_healthy
+      crm-collab:
+        condition: service_healthy
+      crm-media:
+        condition: service_healthy
     networks:
       - shared_backplane
 
