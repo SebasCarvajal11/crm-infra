@@ -311,12 +311,14 @@ write_runtime_env_files() {
   cat > "$runtime_dir/auth.${slot}.env" <<EOF
 DATABASE_URL=$(container_db_url "$auth_database_url")
 REDIS_URL=$(container_redis_url "$auth_redis_url")
+DB_SCHEMA=schema_auth
 GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
 EOF
 
   cat > "$runtime_dir/collab.${slot}.env" <<EOF
 DATABASE_URL=$(container_db_url "$collab_database_url")
 REDIS_URL=$(container_redis_url "$collab_redis_url")
+DB_SCHEMA=schema_collab
 GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
 AUTH_EVENTS_STREAM_KEY=auth:events
 AUTH_EVENTS_CONSUMER_GROUP=collab-auth-consumers
@@ -333,6 +335,7 @@ EOF
   cat > "$runtime_dir/media.${slot}.env" <<EOF
 DATABASE_URL=$(container_db_url "$media_database_url")
 REDIS_URL=$(container_redis_url "$media_redis_url")
+DB_SCHEMA=schema_media
 GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
 CLAMAV_HOST=clamav-scanner
 CLAMAV_PORT=3310
@@ -491,9 +494,9 @@ if [[ -z "${GATEWAY_TRUST_SECRET:-}" ]]; then
   exit 1
 fi
 
-require_env KRAKEND_AUTH_HOST
-require_env KRAKEND_COLLAB_HOST
-require_env KRAKEND_MEDIA_HOST
+KRAKEND_AUTH_HOST="${KRAKEND_AUTH_HOST:-http://auth:3000}"
+KRAKEND_COLLAB_HOST="${KRAKEND_COLLAB_HOST:-http://collab:3001}"
+KRAKEND_MEDIA_HOST="${KRAKEND_MEDIA_HOST:-http://media:3002}"
 
 if [[ -z "${CSP_CONNECT_SRC_EXTRA:-}" || -z "${CSP_IMG_SRC_EXTRA:-}" ]]; then
   oci_region="$(grep '^OCI_REGION=' "$media_dir/.env.production" 2>/dev/null | head -n 1 | cut -d= -f2-)"

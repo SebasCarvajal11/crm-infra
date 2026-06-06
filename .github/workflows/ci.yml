@@ -21,10 +21,22 @@ jobs:
     runs-on: ubuntu-latest
     env:
       POSTGRES_PASSWORD: ci-postgres-password
+      POSTGRES_USER: root
+      POSTGRES_DB: crm_database
+      AUTH_DB_PASSWORD: authpassword
+      COLLAB_DB_PASSWORD: collabpassword
+      MEDIA_DB_PASSWORD: mediapassword
       REDIS_HOST_PORT: "6379"
       CLAMAV_HOST_PORT: "3310"
+      GATEWAY_HOST_PORT: "8080"
       FRONTEND_HOST_PORT: "80"
       POSTGRES_HOST_PORT: "5432"
+      GATEWAY_TRUST_SECRET: ci-gateway-trust-secret-minimum-32-bytes
+      KRAKEND_AUTH_HOST: http://auth:3000
+      KRAKEND_COLLAB_HOST: http://collab:3001
+      KRAKEND_MEDIA_HOST: http://media:3002
+      OCI_CONFIG_HOST_DIR: /tmp/oci
+      OCI_CONFIG_CONTAINER_DIR: /app/.oci
       APP_SLOT: blue
       GATEWAY_SLOT_HOST_PORT: "18081"
       FRONTEND_SLOT_HOST_PORT: "8081"
@@ -42,6 +54,7 @@ jobs:
           path: crm-auth
           sparse-checkout: |
             gateway
+            .env.production.example
           sparse-checkout-cone-mode: false
 
       - name: Checkout collab gateway config
@@ -51,6 +64,7 @@ jobs:
           path: crm-collab
           sparse-checkout: |
             gateway
+            .env.production.example
           sparse-checkout-cone-mode: false
 
       - name: Checkout media gateway config
@@ -60,6 +74,7 @@ jobs:
           path: crm-media
           sparse-checkout: |
             gateway
+            .env.production.example
           sparse-checkout-cone-mode: false
 
       - name: Setup pnpm
@@ -113,10 +128,12 @@ jobs:
           cat > deploy/runtime/auth.blue.env <<'EOF'
           DATABASE_URL=postgres://auth_user:authpassword@postgres_db:5432/crm_database
           REDIS_URL=redis://redis:6379
+          DB_SCHEMA=schema_auth
           GATEWAY_TRUST_SECRET=ci-gateway-trust-secret-minimum-32-bytes
           EOF
           cat > deploy/runtime/collab.blue.env <<'EOF'
           DATABASE_URL=postgres://collab_user:collabpassword@postgres_db:5432/crm_database
+          DB_SCHEMA=schema_collab
           GATEWAY_TRUST_SECRET=ci-gateway-trust-secret-minimum-32-bytes
           MEDIA_COMMANDS_STREAM_KEY=media:commands
           MEDIA_RESPONSES_STREAM_KEY=media:responses
@@ -127,6 +144,7 @@ jobs:
           cat > deploy/runtime/media.blue.env <<'EOF'
           DATABASE_URL=postgres://media_user:mediapassword@postgres_db:5432/crm_database
           REDIS_URL=redis://redis:6379
+          DB_SCHEMA=schema_media
           GATEWAY_TRUST_SECRET=ci-gateway-trust-secret-minimum-32-bytes
           CLAMAV_HOST=clamav-scanner
           CLAMAV_PORT=3310
