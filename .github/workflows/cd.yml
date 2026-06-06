@@ -41,7 +41,7 @@ jobs:
       DEPLOY_BASE_DIR: ${{ secrets.DEPLOY_BASE_DIR }}
 
   deploy-on-ci:
-    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    if: ${{ vars.AUTO_DEPLOY_ENABLED == 'true' && github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     uses: ./.github/workflows/reusable-deploy.yml
     with:
       component: full
