@@ -1,0 +1,76 @@
+# {{SERVICE_TITLE}}
+
+`crm-{{SERVICE_NAME}}` is the {{SERVICE_NAME}} service for CIMA CRM.
+
+## Scope
+
+- TODO: Define service scope and responsibilities
+- TODO: List key features and endpoints
+
+## Local Development
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start development server
+pnpm dev
+
+# Push database schema
+pnpm db:push
+
+# Open Drizzle Studio
+pnpm db:studio
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | `postgres://{{DB_USER}}:{{DB_PASSWORD}}@localhost:15432/crm_database` | PostgreSQL connection string |
+| `DB_SCHEMA` | `{{SCHEMA_NAME}}` | PostgreSQL schema name |
+| `PORT` | `{{SERVICE_PORT}}` | HTTP listen port |
+| `NODE_ENV` | `development` | Environment mode |
+| `REDIS_URL` | `redis://localhost:16379` | Redis connection string |
+| `GATEWAY_TRUST_SECRET` | (required) | Gateway trust verification secret |
+
+## API Documentation
+
+- OpenAPI spec: `GET /openapi.yaml`
+- Swagger UI: `GET /docs`
+- Via gateway: `http://localhost:18080/docs/{{SERVICE_NAME}}/openapi.yaml`
+
+## Scripts
+
+| Script | Description |
+|--------|-------------|
+| `pnpm dev` | Start development server with hot-reload |
+| `pnpm build` | Compile TypeScript |
+| `pnpm start` | Start production server |
+| `pnpm db:generate` | Generate Drizzle migrations |
+| `pnpm db:push` | Push schema to database |
+| `pnpm db:migrate` | Run pending migrations |
+| `pnpm db:studio` | Open Drizzle Studio GUI |
+
+## Architecture
+
+```
+src/
+├── app.ts              # Hono app factory
+├── server.ts           # HTTP server bootstrap
+├── config/
+│   └── env.ts          # Environment validation
+├── db/
+│   ├── connection.ts   # PostgreSQL pool + Drizzle
+│   ├── pg-config.ts    # Connection config
+│   └── schema.ts       # Database schema
+├── modules/
+│   └── {domain}/       # Feature modules
+├── shared/
+│   ├── logger.ts       # Pino structured logger
+│   ├── health.ts       # Health check utilities
+│   ├── redis.ts        # Redis connection
+│   └── middlewares/    # Hono middlewares
+└── openapi/
+    └── openapi.routes.ts
+```

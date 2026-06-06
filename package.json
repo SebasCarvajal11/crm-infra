@@ -5,10 +5,16 @@
   "main": "gateway/build-krakend.mjs",
   "packageManager": "pnpm@11.1.1",
   "scripts": {
+    "contracts:build": "pnpm --dir contracts install --frozen-lockfile && pnpm --dir contracts exec tsc -p tsconfig.json",
     "gateway:build": "node gateway/build-krakend.mjs",
     "smoke:multirepo": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-multirepo.ps1",
     "verify:frontend-ui": "pnpm dlx @playwright/test test -c scripts/playwright.cutover.config.js",
     "verify:multirepo": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-multirepo.ps1",
+    "setup:env": "pwsh -File setup/env.ps1",
+    "setup:db": "pwsh -File setup/db.ps1",
+    "setup:gateway": "pwsh -File setup/gateway.ps1",
+    "setup:all": "pnpm setup:env && pnpm setup:gateway && pnpm setup:db",
+    "dev:all": "concurrently --names auth,collab,media,frontend --prefix-colors blue,green,yellow,magenta --kill-others-on-fail \"pnpm --dir ../crm-auth dev\" \"pnpm --dir ../crm-collab dev\" \"pnpm --dir ../crm-media dev\" \"pnpm --dir ../crm-frontend dev\"",
     "preinstall": "pnpm dlx only-allow pnpm"
   },
   "repository": {
@@ -28,5 +34,8 @@
   "homepage": "https://github.com/SebasCarvajal11/crm-infra#readme",
   "dependencies": {
     "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
   }
 }

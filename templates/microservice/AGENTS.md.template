@@ -1,0 +1,39 @@
+# AGENTS
+
+## Purpose
+
+`crm-{{SERVICE_NAME}}` is the {{SERVICE_NAME}} service for CIMA CRM. It owns [TODO: describe domain responsibilities].
+
+## System Boundaries
+
+- Owns [TODO: list owned domain capabilities]
+- Depends on [TODO: list dependencies on other services]
+- Must not absorb identity, collaboration, or media business rules
+
+## Architecture Rules
+
+- Preserve separation between transport, application logic, repositories, and infrastructure.
+- Keep controllers and route handlers thin. Business rules belong in services; persistence belongs in repositories.
+- Cross-service calls must stay behind explicit shared clients.
+- Security-sensitive behavior must prefer fail-fast validation over permissive defaults.
+
+## Code Organization
+
+- `src/modules/{domain}`: feature modules with controller, service, repository, routes, schemas.
+- `src/shared`: infrastructure adapters, middleware, cross-service clients.
+- `src/config`: runtime configuration and environment parsing.
+- `src/db`: schema, seed, and database scripts owned by this service.
+- `src/openapi`: published API contract.
+- `src/workers`: background processing.
+
+## Security and Operational Rules
+
+- Never commit real credentials, private keys, or secret material.
+- Keep gateway trust handling aligned with the rest of the platform.
+- Error handling should fail fast and avoid leaking internals.
+
+## Development Rules
+
+- Use `pnpm` only. Never add `npm` commands, lockfiles, or documentation.
+- Keep documentation minimal: only `README.md` and this file.
+- Preserve build and lint health when making changes.

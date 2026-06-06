@@ -35,29 +35,32 @@ jobs:
         with:
           path: crm-infra
 
-      - name: Checkout auth
+      - name: Checkout auth gateway config
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-auth
           path: crm-auth
+          sparse-checkout: |
+            gateway
+          sparse-checkout-cone-mode: false
 
-      - name: Checkout collab
+      - name: Checkout collab gateway config
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-collab
           path: crm-collab
+          sparse-checkout: |
+            gateway
+          sparse-checkout-cone-mode: false
 
-      - name: Checkout media
+      - name: Checkout media gateway config
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-media
           path: crm-media
-
-      - name: Checkout frontend
-        uses: actions/checkout@v6
-        with:
-          repository: SebasCarvajal11/crm-frontend
-          path: crm-frontend
+          sparse-checkout: |
+            gateway
+          sparse-checkout-cone-mode: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -79,6 +82,15 @@ jobs:
           docker run --rm -v "${{ github.workspace }}/crm-infra/deploy/remote/bootstrap-server.sh:/bootstrap.sh:ro" bash:5 bash -n /bootstrap.sh
           docker run --rm -v "${{ github.workspace }}/crm-infra/deploy/remote/deploy-component.sh:/deploy.sh:ro" bash:5 bash -n /deploy.sh
 
+      - name: Checkout frontend env template
+        uses: actions/checkout@v6
+        with:
+          repository: SebasCarvajal11/crm-frontend
+          path: crm-frontend
+          sparse-checkout: |
+            .env.production.example
+          sparse-checkout-cone-mode: false
+
       - name: Prepare production env files
         shell: bash
         run: |
@@ -99,25 +111,38 @@ jobs:
           }
           EOF
           cat > deploy/runtime/auth.blue.env <<'EOF'
-          DATABASE_URL=postgres://root:ci-postgres-password@host.docker.internal:5432/crm_database
-          REDIS_URL=redis://host.docker.internal:6379
+          DATABASE_URL=postgres://auth_user:authpassword@postgres_db:5432/crm_database
+          REDIS_URL=redis://redis:6379
+          GATEWAY_TRUST_SECRET=ci-gateway-trust-secret-minimum-32-bytes
           EOF
           cat > deploy/runtime/collab.blue.env <<'EOF'
-          DATABASE_URL=postgres://root:ci-postgres-password@host.docker.internal:5432/crm_database
-          MOD_AUTH_URL=http://auth:3000
-          MOD_MEDIA_URL=http://media:3002
+          DATABASE_URL=postgres://collab_user:collabpassword@postgres_db:5432/crm_database
+          GATEWAY_TRUST_SECRET=ci-gateway-trust-secret-minimum-32-bytes
+          MEDIA_COMMANDS_STREAM_KEY=media:commands
+          MEDIA_RESPONSES_STREAM_KEY=media:responses
+          MEDIA_RESPONSES_CONSUMER_GROUP=collab-media-response-consumers
+          MEDIA_COMMAND_TIMEOUT_MS=8000
+          JWKS_URI=http://auth:3000/.well-known/jwks.json
           EOF
           cat > deploy/runtime/media.blue.env <<'EOF'
-          DATABASE_URL=postgres://root:ci-postgres-password@host.docker.internal:5432/crm_database
-          CLAMAV_HOST=host.docker.internal
+          DATABASE_URL=postgres://media_user:mediapassword@postgres_db:5432/crm_database
+          REDIS_URL=redis://redis:6379
+          GATEWAY_TRUST_SECRET=ci-gateway-trust-secret-minimum-32-bytes
+          CLAMAV_HOST=clamav-scanner
           CLAMAV_PORT=3310
           MOD_COLLAB_URL=http://collab:3001
+          MEDIA_COMMANDS_STREAM_KEY=media:commands
+          MEDIA_RESPONSES_STREAM_KEY=media:responses
+          MEDIA_COMMANDS_CONSUMER_GROUP=media-command-consumers
           EOF
 
       - name: Build KrakenD config
         env:
-          CIMA_AUTH_PATH: ${{ github.workspace }}/crm-auth
-          CIMA_COLLAB_PATH: ${{ github.workspace }}/crm-collab
+          GATEWAY_TRUST_SECRET: ci-gateway-trust-secret-minimum-32-bytes
+          KRAKEND_AUTH_HOST: http://auth:3000
+          KRAKEND_COLLAB_HOST: http://collab:3001
+          KRAKEND_MEDIA_HOST: http://media:3002
+          KRAKEND_PORT: "8080"
         run: pnpm gateway:build --output deploy/runtime/krakend.blue.json
 
       - name: Validate Docker Compose

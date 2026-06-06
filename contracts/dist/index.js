@@ -1,0 +1,1 @@
+export { AUTH_IDENTITY_EVENT_CONTRACT_VERSION, authIdentityEventSchema, userDeletedIdentityEventSchema, userRegisteredIdentityEventSchema, userUpdatedIdentityEventSchema, } from "./auth-identity-events";

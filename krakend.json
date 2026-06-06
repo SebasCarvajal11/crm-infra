@@ -29,7 +29,9 @@
       "expose_headers": [
         "Content-Length",
         "Content-Type",
-        "Set-Cookie"
+        "Set-Cookie",
+        "X-Trace-Id",
+        "X-Request-Id"
       ],
       "allow_credentials": true,
       "max_age": "12h"
@@ -44,12 +46,14 @@
         "Accept",
         "X-Forwarded-For",
         "X-Real-IP",
-        "User-Agent"
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
           "url_pattern": "/health",
           "encoding": "no-op",
@@ -82,12 +86,14 @@
         "Accept",
         "X-Forwarded-For",
         "X-Real-IP",
-        "User-Agent"
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
           "url_pattern": "/.well-known/jwks.json",
           "encoding": "no-op",
@@ -113,43 +119,23 @@
       ]
     },
     {
-      "endpoint": "/openapi.yaml",
+      "endpoint": "/docs/auth/openapi.yaml",
       "method": "GET",
       "output_encoding": "no-op",
       "input_headers": [
         "Accept",
         "X-Forwarded-For",
         "X-Real-IP",
-        "User-Agent"
-      ],
-      "backend": [
-        {
-          "url_pattern": "/openapi.yaml",
-          "encoding": "no-op",
-          "extra_config": {
-            "proxy/static-filesystem": {
-              "dir": "/etc/krakend/static"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "endpoint": "/docs",
-      "method": "GET",
-      "output_encoding": "no-op",
-      "input_headers": [
-        "Accept",
-        "X-Forwarded-For",
-        "X-Real-IP",
-        "User-Agent"
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
-          "url_pattern": "/docs",
+          "url_pattern": "/openapi.yaml",
           "encoding": "no-op",
           "extra_config": {
             "modifier/martian": {
@@ -166,11 +152,338 @@
               "timeout": 10,
               "max_errors": 3,
               "log_status_change": true,
-              "name": "cb--docs"
+              "name": "cb--openapi-yaml"
             }
           }
         }
       ]
+    },
+    {
+      "endpoint": "/api/v1/auth/login",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Content-Type",
+        "Accept",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://crm-auth:3000"
+          ],
+          "url_pattern": "/api/v1/auth/login",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--api-v1-auth-login"
+            }
+          }
+        }
+      ],
+      "extra_config": {
+        "qos/ratelimit/router": {
+          "client_max_rate": 200,
+          "client_capacity": 200,
+          "every": "15m",
+          "strategy": "ip"
+        }
+      }
+    },
+    {
+      "endpoint": "/api/v1/auth/refresh",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Content-Type",
+        "Accept",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://crm-auth:3000"
+          ],
+          "url_pattern": "/api/v1/auth/refresh",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--api-v1-auth-refresh"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/forgot-password",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Content-Type",
+        "Accept",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://crm-auth:3000"
+          ],
+          "url_pattern": "/api/v1/auth/forgot-password",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--api-v1-auth-forgot-password"
+            }
+          }
+        }
+      ],
+      "extra_config": {
+        "qos/ratelimit/router": {
+          "client_max_rate": 3,
+          "client_capacity": 3,
+          "every": "1h",
+          "strategy": "ip"
+        }
+      }
+    },
+    {
+      "endpoint": "/api/v1/auth/reset-password",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Content-Type",
+        "Accept",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://crm-auth:3000"
+          ],
+          "url_pattern": "/api/v1/auth/reset-password",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--api-v1-auth-reset-password"
+            }
+          }
+        }
+      ],
+      "extra_config": {
+        "qos/ratelimit/router": {
+          "client_max_rate": 5,
+          "client_capacity": 5,
+          "every": "1h",
+          "strategy": "ip"
+        }
+      }
+    },
+    {
+      "endpoint": "/api/v1/auth/accept-invite/{token}",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Accept",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://crm-auth:3000"
+          ],
+          "url_pattern": "/api/v1/auth/accept-invite/{token}",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--api-v1-auth-accept-invite--token-"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/accept-invite",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Content-Type",
+        "Accept",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://crm-auth:3000"
+          ],
+          "url_pattern": "/api/v1/auth/accept-invite",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--api-v1-auth-accept-invite"
+            }
+          }
+        }
+      ],
+      "extra_config": {
+        "qos/ratelimit/router": {
+          "client_max_rate": 5,
+          "client_capacity": 5,
+          "every": "1h",
+          "strategy": "ip"
+        }
+      }
+    },
+    {
+      "endpoint": "/api/v1/auth/verify-email",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Content-Type",
+        "Accept",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://crm-auth:3000"
+          ],
+          "url_pattern": "/api/v1/auth/verify-email",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--api-v1-auth-verify-email"
+            }
+          }
+        }
+      ],
+      "extra_config": {
+        "qos/ratelimit/router": {
+          "client_max_rate": 10,
+          "client_capacity": 10,
+          "every": "1h",
+          "strategy": "ip"
+        }
+      }
     },
     {
       "endpoint": "/auth/login",
@@ -181,12 +494,14 @@
         "Accept",
         "X-Forwarded-For",
         "X-Real-IP",
-        "User-Agent"
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
           "url_pattern": "/auth/login",
           "encoding": "no-op",
@@ -212,8 +527,8 @@
       ],
       "extra_config": {
         "qos/ratelimit/router": {
-          "client_max_rate": 5,
-          "client_capacity": 5,
+          "client_max_rate": 200,
+          "client_capacity": 200,
           "every": "15m",
           "strategy": "ip"
         }
@@ -229,12 +544,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id",
         "Cookie"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
           "url_pattern": "/auth/refresh",
           "encoding": "no-op",
@@ -268,12 +585,14 @@
         "Accept",
         "X-Forwarded-For",
         "X-Real-IP",
-        "User-Agent"
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
           "url_pattern": "/auth/forgot-password",
           "encoding": "no-op",
@@ -315,12 +634,14 @@
         "Accept",
         "X-Forwarded-For",
         "X-Real-IP",
-        "User-Agent"
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
           "url_pattern": "/auth/reset-password",
           "encoding": "no-op",
@@ -361,12 +682,14 @@
         "Accept",
         "X-Forwarded-For",
         "X-Real-IP",
-        "User-Agent"
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
           "url_pattern": "/auth/accept-invite/{token}",
           "encoding": "no-op",
@@ -400,12 +723,14 @@
         "Accept",
         "X-Forwarded-For",
         "X-Real-IP",
-        "User-Agent"
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
           "url_pattern": "/auth/accept-invite",
           "encoding": "no-op",
@@ -447,12 +772,14 @@
         "Accept",
         "X-Forwarded-For",
         "X-Real-IP",
-        "User-Agent"
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
           "url_pattern": "/auth/verify-email",
           "encoding": "no-op",
@@ -486,13 +813,13 @@
       }
     },
     {
-      "endpoint": "/identity/me",
+      "endpoint": "/api/v1/identity/me",
       "method": "GET",
       "output_encoding": "no-op",
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -530,12 +857,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/auth/me",
           "encoding": "no-op",
@@ -568,13 +897,13 @@
       ]
     },
     {
-      "endpoint": "/identity/logout",
+      "endpoint": "/api/v1/identity/logout",
       "method": "POST",
       "output_encoding": "no-op",
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -614,12 +943,14 @@
         "X-Real-IP",
         "User-Agent",
         "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id",
         "Cookie"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/auth/logout",
           "encoding": "no-op",
@@ -645,13 +976,13 @@
       ]
     },
     {
-      "endpoint": "/identity/search",
+      "endpoint": "/api/v1/identity/search",
       "method": "GET",
       "output_encoding": "no-op",
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -689,12 +1020,1205 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
+          ],
+          "url_pattern": "/users/search",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users-search"
+            }
+          }
+        }
+      ],
+      "input_query_strings": [
+        "q",
+        "role"
+      ]
+    },
+    {
+      "endpoint": "/api/v1/account/password",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/change-password",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-change-password"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/account/sessions",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/sessions",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-sessions"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/account/sessions/{familyId}",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/sessions/{familyId}",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-sessions--familyId-"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/account/verify-email/request",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/request-email-verification",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-request-email-verification"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/admin/workers",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/register-worker",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-register-worker"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/admin/admins/invite",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/invite-admin",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-invite-admin"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/admin/clients/invite",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/invite-client",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-invite-client"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/admin/users",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/users",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users"
+            }
+          },
+          "allow": [
+            "id",
+            "email",
+            "role",
+            "is_active",
+            "deleted_at",
+            "force_password_change"
+          ]
+        }
+      ],
+      "input_query_strings": [
+        "page",
+        "limit",
+        "role",
+        "include_deleted",
+        "q"
+      ]
+    },
+    {
+      "endpoint": "/api/v1/admin/users/{subject}/status",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/users/{subject}/status",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users--subject--status"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/admin/users/{subject}/flags",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/users/{subject}/flags",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users--subject--flags"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/admin/users/{subject}/restore",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/users/{subject}/restore",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users--subject--restore"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/admin/users/{subject}",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/users/{subject}",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users--subject-"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/identity/me",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/me",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-me"
+            }
+          },
+          "allow": [
+            "id",
+            "email",
+            "role",
+            "emailVerifiedAt",
+            "force_password_change"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/identity/logout",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/logout",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-logout"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/identity/search",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
           ],
           "url_pattern": "/users/search",
           "encoding": "no-op",
@@ -730,7 +2254,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -769,12 +2293,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/auth/change-password",
           "encoding": "no-op",
@@ -806,7 +2332,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -844,12 +2370,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/auth/sessions",
           "encoding": "no-op",
@@ -881,7 +2409,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -919,12 +2447,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/auth/sessions/{familyId}",
           "encoding": "no-op",
@@ -956,7 +2486,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -995,12 +2525,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/auth/request-email-verification",
           "encoding": "no-op",
@@ -1032,7 +2564,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1071,12 +2603,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/auth/register-worker",
           "encoding": "no-op",
@@ -1108,7 +2642,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1147,12 +2681,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/auth/invite-admin",
           "encoding": "no-op",
@@ -1184,7 +2720,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1223,12 +2759,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/auth/invite-client",
           "encoding": "no-op",
@@ -1260,7 +2798,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1298,12 +2836,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/users",
           "encoding": "no-op",
@@ -1350,7 +2890,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1389,12 +2929,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/users/{subject}/status",
           "encoding": "no-op",
@@ -1426,7 +2968,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1465,12 +3007,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/users/{subject}/flags",
           "encoding": "no-op",
@@ -1502,7 +3046,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1541,12 +3085,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/users/{subject}/restore",
           "encoding": "no-op",
@@ -1578,7 +3124,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1616,12 +3162,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "auth"
           ],
           "url_pattern": "/users/{subject}",
           "encoding": "no-op",
@@ -1647,13 +3195,13 @@
       ]
     },
     {
-      "endpoint": "/projects",
+      "endpoint": "/api/v1/auth/me",
       "method": "GET",
       "output_encoding": "no-op",
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1691,12 +3239,1245 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "auth"
+          ],
+          "url_pattern": "/auth/me",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-me"
+            }
+          },
+          "allow": [
+            "id",
+            "email",
+            "role",
+            "emailVerifiedAt",
+            "force_password_change"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/logout",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/logout",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-logout"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/search",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/users/search",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users-search"
+            }
+          }
+        }
+      ],
+      "input_query_strings": [
+        "q",
+        "role"
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/password",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/change-password",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-change-password"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/sessions",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/sessions",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-sessions"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/sessions/{familyId}",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/sessions/{familyId}",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-sessions--familyId-"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/verify-email/request",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/request-email-verification",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-request-email-verification"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/workers",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/register-worker",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-register-worker"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/admins/invite",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/invite-admin",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-invite-admin"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/clients/invite",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/auth/invite-client",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--auth-invite-client"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/users",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/users",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users"
+            }
+          },
+          "allow": [
+            "id",
+            "email",
+            "role",
+            "is_active",
+            "deleted_at",
+            "force_password_change"
+          ]
+        }
+      ],
+      "input_query_strings": [
+        "page",
+        "limit",
+        "role",
+        "include_deleted",
+        "q"
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/users/{subject}/status",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/users/{subject}/status",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users--subject--status"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/users/{subject}/flags",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/users/{subject}/flags",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users--subject--flags"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/users/{subject}/restore",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/users/{subject}/restore",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users--subject--restore"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/auth/users/{subject}",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "auth"
+          ],
+          "url_pattern": "/users/{subject}",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--users--subject-"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/docs/collab/openapi.yaml",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Accept",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://crm-collab:3001"
+          ],
+          "url_pattern": "/openapi.yaml",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--openapi-yaml"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/projects",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "collab"
           ],
           "url_pattern": "/collab/projects",
           "encoding": "no-op",
@@ -1737,7 +4518,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1775,12 +4556,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/search",
           "encoding": "no-op",
@@ -1816,7 +4599,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1855,12 +4638,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects",
           "encoding": "no-op",
@@ -1892,7 +4677,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -1931,12 +4716,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}",
           "encoding": "no-op",
@@ -1968,7 +4755,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2006,12 +4793,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/board",
           "encoding": "no-op",
@@ -2043,7 +4832,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2081,12 +4870,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/workspace",
           "encoding": "no-op",
@@ -2118,7 +4909,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2156,12 +4947,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/members",
           "encoding": "no-op",
@@ -2193,7 +4986,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2232,12 +5025,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/members",
           "encoding": "no-op",
@@ -2269,7 +5064,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2307,12 +5102,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/columns",
           "encoding": "no-op",
@@ -2344,7 +5141,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2383,12 +5180,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/columns",
           "encoding": "no-op",
@@ -2420,7 +5219,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2459,12 +5258,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/columns/{columnId}",
           "encoding": "no-op",
@@ -2496,7 +5297,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2534,12 +5335,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/tasks",
           "encoding": "no-op",
@@ -2583,7 +5386,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2622,12 +5425,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/tasks",
           "encoding": "no-op",
@@ -2659,7 +5464,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2698,12 +5503,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/tasks/{taskId}",
           "encoding": "no-op",
@@ -2735,7 +5542,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2773,12 +5580,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/chat/internal",
           "encoding": "no-op",
@@ -2810,7 +5619,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2849,12 +5658,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/chat/internal",
           "encoding": "no-op",
@@ -2886,7 +5697,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -2925,12 +5736,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/chat/internal/read",
           "encoding": "no-op",
@@ -2962,7 +5775,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3000,12 +5813,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/chat/external",
           "encoding": "no-op",
@@ -3037,7 +5852,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3076,12 +5891,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/chat/external",
           "encoding": "no-op",
@@ -3113,7 +5930,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3152,12 +5969,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/chat/external/read",
           "encoding": "no-op",
@@ -3189,7 +6008,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3227,12 +6046,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/notifications/chat-mentions/unread",
           "encoding": "no-op",
@@ -3264,7 +6085,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3302,12 +6123,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/notifications/chat-mentions/unread/count",
           "encoding": "no-op",
@@ -3339,7 +6162,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3378,12 +6201,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/notifications/chat-mentions/{notificationId}/read",
           "encoding": "no-op",
@@ -3415,7 +6240,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3454,12 +6279,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/change-requests/minor",
           "encoding": "no-op",
@@ -3491,7 +6318,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3530,12 +6357,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/change-requests/formal",
           "encoding": "no-op",
@@ -3567,7 +6396,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3606,12 +6435,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/change-requests/{changeRequestId}",
           "encoding": "no-op",
@@ -3643,7 +6474,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3681,12 +6512,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/change-log/formal",
           "encoding": "no-op",
@@ -3718,7 +6551,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3756,12 +6589,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/files",
           "encoding": "no-op",
@@ -3793,7 +6628,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3832,12 +6667,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/files",
           "encoding": "no-op",
@@ -3869,7 +6706,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3907,12 +6744,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/timeline",
           "encoding": "no-op",
@@ -3944,7 +6783,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -3982,12 +6821,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/files/timeline",
           "encoding": "no-op",
@@ -4019,7 +6860,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4058,12 +6899,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/files/upload-url",
           "encoding": "no-op",
@@ -4089,13 +6932,13 @@
       ]
     },
     {
-      "endpoint": "/files/{fileId}/approve",
-      "method": "PATCH",
+      "endpoint": "/projects/{projectId}/files/upload",
+      "method": "POST",
       "output_encoding": "no-op",
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4134,12 +6977,172 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
+          ],
+          "url_pattern": "/collab/projects/{projectId}/files/upload",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-projects--projectId--files-upload"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/projects/{projectId}/files/uploaded-object",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "collab"
+          ],
+          "url_pattern": "/collab/projects/{projectId}/files/uploaded-object",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--collab-projects--projectId--files-uploaded-object"
+            }
+          }
+        }
+      ],
+      "input_query_strings": [
+        "objectKey"
+      ]
+    },
+    {
+      "endpoint": "/files/{fileId}/approve",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User-Sub"
+            ],
+            [
+              "userId",
+              "X-User-Id"
+            ],
+            [
+              "role",
+              "X-User-Role"
+            ],
+            [
+              "email",
+              "X-User-Email"
+            ],
+            [
+              "exp",
+              "X-Token-Exp"
+            ]
+          ]
+        }
+      },
+      "input_headers": [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-User-Sub",
+        "X-User-Id",
+        "X-User-Role",
+        "X-User-Email",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "collab"
           ],
           "url_pattern": "/collab/files/{fileId}/approve",
           "encoding": "no-op",
@@ -4171,7 +7174,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4209,12 +7212,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/files/{fileId}/download",
           "encoding": "no-op",
@@ -4249,7 +7254,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4287,12 +7292,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/files/{fileId}/access",
           "encoding": "no-op",
@@ -4327,7 +7334,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4365,12 +7372,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/files/{fileId}",
           "encoding": "no-op",
@@ -4402,7 +7411,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4441,12 +7450,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/files/{fileId}",
           "encoding": "no-op",
@@ -4478,7 +7489,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4516,12 +7527,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/tasks/{taskId}/comments",
           "encoding": "no-op",
@@ -4553,7 +7566,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4592,12 +7605,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/tasks/{taskId}/comments",
           "encoding": "no-op",
@@ -4629,7 +7644,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4667,12 +7682,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/tasks/{taskId}/files",
           "encoding": "no-op",
@@ -4704,7 +7721,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4743,12 +7760,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/tasks/{taskId}/files/upload-url",
           "encoding": "no-op",
@@ -4780,7 +7799,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4819,12 +7838,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/tasks/{taskId}/files/metadata",
           "encoding": "no-op",
@@ -4856,7 +7877,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4894,12 +7915,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/brief",
           "encoding": "no-op",
@@ -4931,7 +7954,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -4970,12 +7993,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/brief",
           "encoding": "no-op",
@@ -5007,7 +8032,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -5045,12 +8070,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "collab"
           ],
           "url_pattern": "/collab/projects/{projectId}/workspace",
           "encoding": "no-op",
@@ -5076,13 +8103,53 @@
       ]
     },
     {
+      "endpoint": "/docs/media/openapi.yaml",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Accept",
+        "X-Forwarded-For",
+        "X-Real-IP",
+        "User-Agent",
+        "X-Request-Id",
+        "X-Trace-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://crm-media:3002"
+          ],
+          "url_pattern": "/openapi.yaml",
+          "encoding": "no-op",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": [
+                  "request"
+                ],
+                "name": "X-Gateway-Trust",
+                "value": "cima-local-gateway-trust-secret-do-not-use-production-2026"
+              }
+            },
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "timeout": 10,
+              "max_errors": 3,
+              "log_status_change": true,
+              "name": "cb--openapi-yaml"
+            }
+          }
+        }
+      ]
+    },
+    {
       "endpoint": "/media/avatars",
       "method": "POST",
       "output_encoding": "no-op",
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -5121,12 +8188,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3002"
+            "media"
           ],
           "url_pattern": "/media/avatars",
           "encoding": "no-op",
@@ -5158,7 +8227,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -5197,12 +8266,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3002"
+            "media"
           ],
           "url_pattern": "/media/documents/upload-url",
           "encoding": "no-op",
@@ -5234,7 +8305,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -5273,12 +8344,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3002"
+            "media"
           ],
           "url_pattern": "/media/documents/confirm",
           "encoding": "no-op",
@@ -5310,7 +8383,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -5348,12 +8421,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3002"
+            "media"
           ],
           "url_pattern": "/media/documents",
           "encoding": "no-op",
@@ -5388,7 +8463,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -5426,12 +8501,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3002"
+            "media"
           ],
           "url_pattern": "/media/documents/access",
           "encoding": "no-op",
@@ -5467,7 +8544,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -5505,12 +8582,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3002"
+            "media"
           ],
           "url_pattern": "/media/avatars/current",
           "encoding": "no-op",
@@ -5542,7 +8621,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -5580,12 +8659,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3002"
+            "media"
           ],
           "url_pattern": "/media/avatars/users",
           "encoding": "no-op",
@@ -5621,7 +8702,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -5659,12 +8740,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
           "url_pattern": "/auth/me/flat",
           "encoding": "json",
@@ -5696,7 +8779,7 @@
         },
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "http://crm-collab:3001"
           ],
           "url_pattern": "/collab/projects?page=1&limit=100",
           "encoding": "json",
@@ -5730,7 +8813,7 @@
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "http://host.docker.internal:3000/.well-known/jwks.json",
+          "jwk_url": "http://crm-auth:3000/.well-known/jwks.json",
           "cache": true,
           "cache_duration": 900,
           "disable_jwk_security": true,
@@ -5768,12 +8851,14 @@
         "X-Forwarded-For",
         "X-Real-IP",
         "User-Agent",
-        "X-Token-Exp"
+        "X-Token-Exp",
+        "X-Request-Id",
+        "X-Trace-Id"
       ],
       "backend": [
         {
           "host": [
-            "http://host.docker.internal:3000"
+            "http://crm-auth:3000"
           ],
           "url_pattern": "/users?page=1&limit=100",
           "encoding": "json",
@@ -5807,7 +8892,7 @@
         },
         {
           "host": [
-            "http://host.docker.internal:3001"
+            "http://crm-collab:3001"
           ],
           "url_pattern": "/collab/projects?page=1&limit=100",
           "encoding": "json",

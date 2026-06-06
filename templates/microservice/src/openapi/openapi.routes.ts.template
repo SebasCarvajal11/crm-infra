@@ -1,0 +1,24 @@
+import { Hono } from "hono";
+
+export const createOpenApiRoutes = () => {
+  const app = new Hono();
+
+  app.get("/openapi.yaml", (c) => {
+    return c.text("OpenAPI spec not yet defined", 404);
+  });
+
+  app.get("/docs", (c) => {
+    return c.html(`
+      <!DOCTYPE html>
+      <html>
+        <head><title>{{SERVICE_TITLE}} API Docs</title></head>
+        <body>
+          <h1>{{SERVICE_TITLE}} API Documentation</h1>
+          <p>OpenAPI spec not yet defined.</p>
+        </body>
+      </html>
+    `);
+  });
+
+  return app;
+};

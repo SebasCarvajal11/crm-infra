@@ -4,6 +4,7 @@ const path = require('node:path')
 const { test, expect } = require('@playwright/test')
 
 test('cutover frontend flow works against the multi-repo stack', async ({ page }) => {
+  page.on('console', msg => console.log(`[BROWSER CUTOVER CONSOLE] ${msg.type()}: ${msg.text()}`))
   const suffix = Date.now().toString()
   const projectName = `Proyecto Cutover ${suffix}`
   const taskTitle = `Tarea Cutover ${suffix}`
@@ -54,8 +55,8 @@ test('cutover frontend flow works against the multi-repo stack', async ({ page }
   await page.getByRole('button', { name: 'Adjuntar archivo' }).click()
   await page.locator('#tf-title').fill(uploadTitle)
   await page.locator('#tf-desc').fill(uploadNote)
-  await page.locator('input[type="file"]').setInputFiles(uploadFile)
+  await page.getByLabel('Seleccionar archivo').setInputFiles(uploadFile)
   await page.getByRole('button', { name: 'Subir archivo' }).click()
 
-  await expect(page.getByText(uploadTitle, { exact: false })).toBeVisible({ timeout: 60_000 })
+  await expect(page.locator('div[role="dialog"]').getByText(uploadTitle, { exact: false })).toBeVisible({ timeout: 60_000 })
 })

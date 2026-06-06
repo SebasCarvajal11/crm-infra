@@ -1,0 +1,49 @@
+import { serve } from "@hono/node-server";
+import { env } from "./config/env";
+import { getLogger } from "./shared/logger";
+
+const logger = getLogger();
+
+async function main() {
+  const { createApp } = await import("./app");
+  const app = createApp();
+
+  const server = serve(
+    {
+      fetch: app.fetch,
+      port: env.PORT,
+    },
+    (info) => {
+      logger.info({ port: info.port }, "mod-{{SERVICE_NAME}} started");
+    }
+  );
+
+  // --- Graceful Shutdown ---
+  let isShuttingDown = false;
+
+  async function shutdown(signal: string) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    logger.info({ signal }, "shutting down");
+
+    server.close(() => {
+      logger.info("server closed");
+      process.exit(0);
+    });
+
+    // Force exit after 10s
+    setTimeout(() => {
+      logger.warn("forced shutdown after timeout");
+      process.exit(1);
+    }, 10_000);
+  }
+
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+}
+
+main().catch((err) => {
+  logger.error({ err }, "fatal startup error");
+  process.exit(1);
+});

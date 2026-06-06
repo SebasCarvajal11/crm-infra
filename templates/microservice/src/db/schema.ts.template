@@ -1,0 +1,11 @@
+import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgSchema } from "drizzle-orm/pg-core";
+
+const schema = pgSchema("{{SCHEMA_NAME}}");
+
+export const exampleTable = schema.table("example", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});

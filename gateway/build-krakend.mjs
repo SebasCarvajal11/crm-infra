@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build-krakend.mjs — Genera krakend.json desde templates y listas de endpoints.
+ * build-krakend.mjs â€” Genera krakend.json desde templates y listas de endpoints.
  *
  * Soporta:
  * - JWT validator inyectado automaticamente en endpoints autenticados
@@ -13,60 +13,55 @@
  *
  * Uso:
  *   node gateway/build-krakend.mjs
- *   node gateway/build-krakend.mjs --output gateway/output/krakend.json
+ *   node gateway/build-krakend.mjs --output deploy/runtime/krakend.json
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, "..");
-const WORKSPACE_ROOT = resolve(REPO_ROOT, "..");
-
-const ENDPOINTS_DIR = resolve(__dirname, "endpoints");
 const DEFAULT_OUTPUT = resolve(__dirname, "..", "krakend.json");
 
-const GATEWAY_TRUST_SECRET =
-  process.env.GATEWAY_TRUST_SECRET || "cima-local-gateway-trust-secret-do-not-use-production-2026";
+const GATEWAY_TRUST_SECRET = requiredEnv("GATEWAY_TRUST_SECRET");
+const AUTH_HOST = requiredUrlEnv("KRAKEND_AUTH_HOST");
+const COLLAB_HOST = requiredUrlEnv("KRAKEND_COLLAB_HOST");
+const MEDIA_HOST = requiredUrlEnv("KRAKEND_MEDIA_HOST");
+const GATEWAY_PORT = optionalPortEnv("KRAKEND_PORT", 8080);
 
-const AUTH_HOST = process.env.KRAKEND_AUTH_HOST || "http://host.docker.internal:3000";
-const COLLAB_HOST = process.env.KRAKEND_COLLAB_HOST || "http://host.docker.internal:3001";
-const MEDIA_HOST = process.env.KRAKEND_MEDIA_HOST || "http://host.docker.internal:3002";
-
-const OPENAPI_OUTPUT = resolve(__dirname, "output", "openapi.yaml");
-
-function resolveRepoPath(envVarName, siblingName) {
-  const candidates = [
-    process.env[envVarName],
-    resolve(WORKSPACE_ROOT, siblingName),
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    const packageJson = resolve(candidate, "package.json");
-    if (existsSync(packageJson)) {
-      return candidate;
-    }
+function requiredEnv(name) {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`${name} es requerida para generar krakend.json`);
   }
-
-  return null;
+  return value;
 }
 
-function resolveOpenApiPath(envVarName, siblingName) {
-  const repoPath = resolveRepoPath(envVarName, siblingName);
-  if (!repoPath) return null;
-
-  const openApiPath = resolve(repoPath, "openapi", "openapi.yaml");
-  if (!existsSync(openApiPath)) return null;
-
-  return openApiPath;
+function requiredUrlEnv(name) {
+  const value = requiredEnv(name).replace(/\/+$/, "");
+  try {
+    const url = new URL(value);
+    if (!["http:", "https:"].includes(url.protocol)) {
+      throw new Error("protocolo invalido");
+    }
+    return value;
+  } catch {
+    throw new Error(`${name} debe ser una URL http(s) valida`);
+  }
 }
 
-const AUTH_OPENAPI = resolveOpenApiPath("CIMA_AUTH_PATH", "crm-auth");
-const COLLAB_OPENAPI = resolveOpenApiPath("CIMA_COLLAB_PATH", "crm-collab");
+function optionalPortEnv(name, fallback) {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
 
-// ── Templates ──────────────────────────────────────────────────────────────────
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1 || value > 65535) {
+    throw new Error(`${name} debe ser un puerto TCP valido`);
+  }
+  return value;
+}
+
+// â”€â”€ Templates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function gatewayTrustExtra() {
   return {
@@ -99,14 +94,14 @@ function jwtValidator() {
   };
 }
 
-const PUBLIC_HEADERS_BASE = ["Accept", "X-Forwarded-For", "X-Real-IP", "User-Agent"];
+const PUBLIC_HEADERS_BASE = ["Accept", "X-Forwarded-For", "X-Real-IP", "User-Agent", "X-Request-Id", "X-Trace-Id"];
 const AUTH_HEADERS_BASE = [
   "Authorization", "Accept", "X-User-Sub", "X-User-Id", "X-User-Role",
-  "X-User-Email", "X-Forwarded-For", "X-Real-IP", "User-Agent", "X-Token-Exp",
+  "X-User-Email", "X-Forwarded-For", "X-Real-IP", "User-Agent", "X-Token-Exp", "X-Request-Id", "X-Trace-Id",
 ];
 const BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
 
-// ── Circuit Breaker defaults ───────────────────────────────────────────────────
+// â”€â”€ Circuit Breaker defaults â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const CB_DEFAULTS = {
   interval: 60,
@@ -115,7 +110,7 @@ const CB_DEFAULTS = {
   log_status_change: true,
 };
 
-// ── Builders ───────────────────────────────────────────────────────────────────
+// â”€â”€ Builders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function buildBackend(host, urlPattern, def = {}) {
   const backend = {
@@ -161,6 +156,20 @@ function buildBackend(host, urlPattern, def = {}) {
   return backend;
 }
 
+function resolveServiceHost(service) {
+  switch (service) {
+    case undefined:
+    case "auth":
+      return AUTH_HOST;
+    case "collab":
+      return COLLAB_HOST;
+    case "media":
+      return MEDIA_HOST;
+    default:
+      throw new Error(`Host de endpoint publico no soportado: ${service}`);
+  }
+}
+
 function parseTtl(ttl) {
   const match = ttl.match(/^(\d+)(s|m|h)$/);
   if (!match) return 60;
@@ -181,20 +190,7 @@ function buildPublicEndpoint(def) {
     }
   }
 
-  let backend;
-  if (def.static_file) {
-    backend = {
-      url_pattern: def.backend_url || def.endpoint,
-      encoding: "no-op",
-      extra_config: {
-        "proxy/static-filesystem": {
-          dir: "/etc/krakend/static",
-        },
-      },
-    };
-  } else {
-    backend = buildBackend(AUTH_HOST, def.backend_url || def.endpoint);
-  }
+  const backend = buildBackend(resolveServiceHost(def.host), def.backend_url || def.endpoint);
 
   const endpoint = {
     endpoint: def.endpoint,
@@ -284,150 +280,99 @@ function buildBffEndpoint(def) {
   return endpoint;
 }
 
-// ── Loader ─────────────────────────────────────────────────────────────────────
+// ── Loader ───────────────────────────────────────────────────────────────────
 
 const AUTH_HEADERS_WITH_BODY = ["Content-Type", ...AUTH_HEADERS_BASE];
 
-function loadEndpoints(filename) {
-  return JSON.parse(readFileSync(resolve(ENDPOINTS_DIR, filename), "utf-8"));
-}
+function loadServiceEndpoints(serviceName, defaultHost) {
+  const hostPath = resolve(__dirname, "..", "..", `crm-${serviceName}`, "gateway", "endpoints.json");
+  const dockerPath = resolve(__dirname, "..", `crm-${serviceName}`, "gateway", "endpoints.json");
 
-// ── OpenAPI Consolidado ────────────────────────────────────────────────────────
-
-function buildRouteMap(endpointsDef) {
-  const map = new Map();
-  for (const def of endpointsDef) {
-    const publicPath = def.endpoint;
-    const backendUrl = def.backend_url || def.endpoint;
-    if (publicPath !== backendUrl) {
-      map.set(backendUrl, publicPath);
+  let rawData;
+  try {
+    rawData = readFileSync(hostPath, "utf-8");
+  } catch {
+    try {
+      rawData = readFileSync(dockerPath, "utf-8");
+    } catch (err) {
+      throw new Error(`No se pudo leer endpoints.json para crm-${serviceName} en ${hostPath} ni en ${dockerPath}: ${err.message}`);
     }
   }
-  return map;
+
+  const data = JSON.parse(rawData);
+  return {
+    host: data.host || defaultHost,
+    endpoints: data.endpoints || []
+  };
 }
 
-function remapCollabPaths(collabPaths, routeMap) {
-  const remapped = {};
-  for (const [internalPath, pathItem] of Object.entries(collabPaths)) {
-    const publicPath = routeMap.get(internalPath) || internalPath;
-    remapped[publicPath] = pathItem;
+function loadBffEndpoints() {
+  const bffPath = resolve(__dirname, "bff.json");
+  try {
+    const data = JSON.parse(readFileSync(bffPath, "utf-8"));
+    return data.endpoints || [];
+  } catch (err) {
+    throw new Error(`Error al cargar endpoints BFF: ${err.message}`);
   }
-  return remapped;
 }
 
-function generateOpenAPI() {
-  if (!AUTH_OPENAPI || !COLLAB_OPENAPI) {
-    const missing = [];
-    if (!AUTH_OPENAPI) missing.push("crm-auth/openapi/openapi.yaml");
-    if (!COLLAB_OPENAPI) missing.push("crm-collab/openapi/openapi.yaml");
 
-    console.warn(
-      `! openapi.yaml consolidado omitido: no se encontraron ${missing.join(" y ")}. ` +
-        "Configura CIMA_AUTH_PATH y/o CIMA_COLLAB_PATH, o coloca los repos como hermanos de crm-infra.",
-    );
-    return;
-  }
-
-  const authSpec = parseYaml(readFileSync(AUTH_OPENAPI, "utf-8"));
-  const collabSpec = parseYaml(readFileSync(COLLAB_OPENAPI, "utf-8"));
-
-  const collabDef = loadEndpoints("collab.json");
-  const routeMap = buildRouteMap(collabDef.endpoints);
-
-  const authPaths = { ...authSpec.paths };
-  const collabPaths = remapCollabPaths(collabSpec.paths, routeMap);
-
-  const mergedPaths = { ...authPaths, ...collabPaths };
-
-  const mergedSchemas = {
-    ...(authSpec.components?.schemas || {}),
-    ...(collabSpec.components?.schemas || {}),
-  };
-
-  const mergedSecuritySchemes = {
-    ...(authSpec.components?.securitySchemes || {}),
-    ...(collabSpec.components?.securitySchemes || {}),
-  };
-
-  const mergedParameters = {
-    ...(authSpec.components?.parameters || {}),
-    ...(collabSpec.components?.parameters || {}),
-  };
-
-  const mergedResponses = {
-    ...(authSpec.components?.responses || {}),
-    ...(collabSpec.components?.responses || {}),
-  };
-
-  const consolidated = {
-    openapi: "3.0.3",
-    info: {
-      title: "CIMA CRM API Gateway",
-      description:
-        "Especificación consolidada del API Gateway (KrakenD). " +
-        "Documenta todas las rutas públicas expuestas al frontend, " +
-        "combinando los módulos de autenticación y colaboración.",
-      version: "1.0.0",
-      license: {
-        name: "Proyecto academico CIMA CRM",
-      },
-    },
-    servers: [
-      {
-        url: "http://localhost:8080",
-        description: "KrakenD — entrada unica para el SPA",
-      },
-    ],
-    tags: [
-      ...(authSpec.tags || []),
-      ...(collabSpec.tags || []),
-      { name: "BFF", description: "Backend For Frontend — agregaciones" },
-    ],
-    security: [{ BearerAuth: [] }],
-    paths: mergedPaths,
-    components: {
-      securitySchemes: mergedSecuritySchemes,
-      schemas: mergedSchemas,
-      parameters: mergedParameters,
-      responses: mergedResponses,
-    },
-  };
-
-  mkdirSync(dirname(OPENAPI_OUTPUT), { recursive: true });
-  writeFileSync(OPENAPI_OUTPUT, stringifyYaml(consolidated, { lineWidth: 120 }) + "\n", "utf-8");
-
-  const pathCount = Object.keys(mergedPaths).length;
-  const schemaCount = Object.keys(mergedSchemas).length;
-  console.log(`✓ openapi.yaml consolidado: ${OPENAPI_OUTPUT}`);
-  console.log(`  Paths: ${pathCount} | Schemas: ${schemaCount}`);
-}
-
-// ── Main ───────────────────────────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────────────
 
 function main() {
   const outputArg = process.argv.indexOf("--output");
   const outputPath =
     outputArg !== -1 ? resolve(process.argv[outputArg + 1]) : DEFAULT_OUTPUT;
 
-  const publicDef = loadEndpoints("public.json");
-  const authDef = loadEndpoints("auth.json");
-  const collabDef = loadEndpoints("collab.json");
-  const mediaDef = loadEndpoints("media.json");
-  const bffDef = loadEndpoints("bff.json");
+  const authData = loadServiceEndpoints("auth", AUTH_HOST);
+  const collabData = loadServiceEndpoints("collab", COLLAB_HOST);
+  const mediaData = loadServiceEndpoints("media", MEDIA_HOST);
+  const bffEndpoints = loadBffEndpoints();
 
-  const endpoints = [
-    ...publicDef.endpoints.map(buildPublicEndpoint),
-    ...authDef.endpoints.map((d) => buildAuthEndpoint(d, authDef.host || AUTH_HOST)),
-    ...collabDef.endpoints.map((d) => buildAuthEndpoint(d, collabDef.host || COLLAB_HOST)),
-    ...mediaDef.endpoints.map((d) => buildAuthEndpoint(d, mediaDef.host || MEDIA_HOST)),
-    ...bffDef.endpoints.map(buildBffEndpoint),
-  ];
+  let publicCount = 0;
+  let authCount = 0;
+  let collabCount = 0;
+  let mediaCount = 0;
+  let bffCount = 0;
+  let withAllow = 0;
+  let withCache = 0;
+  let publicRateLimitCount = 0;
+
+  const endpoints = [];
+
+  function processEndpoints(list, serviceHost, serviceName) {
+    for (const d of list) {
+      if (d.backends) {
+        endpoints.push(buildBffEndpoint(d));
+        bffCount++;
+      } else if (d.public === true) {
+        d.host = d.host || serviceName;
+        endpoints.push(buildPublicEndpoint(d));
+        publicCount++;
+        if (d.rate_limit) {
+          publicRateLimitCount++;
+        }
+      } else {
+        endpoints.push(buildAuthEndpoint(d, serviceHost));
+        if (serviceName === "auth") authCount++;
+        if (serviceName === "collab") collabCount++;
+        if (serviceName === "media") mediaCount++;
+        if (d.allow) withAllow++;
+        if (d.cache_ttl) withCache++;
+      }
+    }
+  }
+
+  processEndpoints(authData.endpoints, authData.host, "auth");
+  processEndpoints(collabData.endpoints, collabData.host, "collab");
+  processEndpoints(mediaData.endpoints, mediaData.host, "media");
+  processEndpoints(bffEndpoints, undefined, "bff");
 
   const config = {
     $schema: "https://www.krakend.io/schema/v3.json",
     version: 3,
     name: "CIMA CRM API Gateway",
-    port: 8080,
+    port: GATEWAY_PORT,
     timeout: "30s",
     extra_config: {
       "security/cors": {
@@ -437,7 +382,7 @@ function main() {
           "Origin", "Authorization", "Content-Type", "Cookie",
           "Accept", "X-Requested-With",
         ],
-        expose_headers: ["Content-Length", "Content-Type", "Set-Cookie"],
+        expose_headers: ["Content-Length", "Content-Type", "Set-Cookie", "X-Trace-Id", "X-Request-Id"],
         allow_credentials: true,
         max_age: "12h",
       },
@@ -448,24 +393,15 @@ function main() {
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
 
-  const publicCount = publicDef.endpoints.length;
-  const authCount = authDef.endpoints.length;
-  const collabCount = collabDef.endpoints.length;
-  const mediaCount = mediaDef.endpoints.length;
-  const bffCount = bffDef.endpoints.length;
   const total = publicCount + authCount + collabCount + mediaCount + bffCount;
-
-  const withAllow = [...authDef.endpoints, ...collabDef.endpoints, ...mediaDef.endpoints].filter((e) => e.allow).length;
-  const withCache = [...collabDef.endpoints].filter((e) => e.cache_ttl).length;
 
   console.log(`✓ krakend.json generado: ${outputPath}`);
   console.log(`  Endpoints: ${total} (public:${publicCount} auth:${authCount} collab:${collabCount} media:${mediaCount} bff:${bffCount})`);
   console.log(`  Response filtering (allow): ${withAllow} endpoints`);
   console.log(`  Edge caching: ${withCache} endpoints`);
   console.log(`  Circuit breaker: ${total} backends (todos)`);
-  console.log(`  Rate limiting: ${publicDef.endpoints.filter((e) => e.rate_limit).length} endpoints`);
+  console.log(`  Rate limiting: ${publicRateLimitCount} endpoints`);
 
-  generateOpenAPI();
 }
 
 main();

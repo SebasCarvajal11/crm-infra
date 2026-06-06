@@ -1,0 +1,83 @@
+#!/bin/bash
+# Setup script for new CIMA CRM microservice
+# Usage: ./setup.sh <service-name> <port> [db-password]
+#
+# Example:
+#   ./setup.sh billing 3003 billingpassword
+#
+# This script:
+# 1. Copies the template to ../crm-<service-name>
+# 2. Replaces all placeholders with actual values
+# 3. Prints next steps for integration
+
+set -e
+
+SERVICE_NAME=$1
+PORT=$2
+DB_PASSWORD=${3:-"${SERVICE_NAME}password"}
+
+if [ -z "$SERVICE_NAME" ] || [ -z "$PORT" ]; then
+    echo "Usage: ./setup.sh <service-name> <port> [db-password]"
+    echo "Example: ./setup.sh billing 3003 billingpassword"
+    exit 1
+fi
+
+SCHEMA_NAME="schema_${SERVICE_NAME}"
+DB_USER="${SERVICE_NAME}_user"
+TEMPLATE_DIR="$(cd "$(dirname "$0")" && pwd)"
+TARGET_DIR="$(dirname "$TEMPLATE_DIR")/../../crm-${SERVICE_NAME}"
+
+echo "🚀 Creating microservice: crm-${SERVICE_NAME} on port ${PORT}"
+echo ""
+
+# Check if target directory already exists
+if [ -d "$TARGET_DIR" ]; then
+    echo "❌ Error: $TARGET_DIR already exists"
+    exit 1
+fi
+
+# Copy template
+echo "📁 Copying template..."
+cp -r "$TEMPLATE_DIR" "$TARGET_DIR"
+
+# Replace placeholders in all .template files
+echo "🔧 Replacing placeholders..."
+find "$TARGET_DIR" -type f -name "*.template" | while read -r file; do
+    # Replace placeholders
+    sed -i "s/{{SERVICE_NAME}}/$SERVICE_NAME/g" "$file"
+    sed -i "s/{{SERVICE_PORT}}/$PORT/g" "$file"
+    sed -i "s/{{SCHEMA_NAME}}/$SCHEMA_NAME/g" "$file"
+    sed -i "s/{{DB_USER}}/$DB_USER/g" "$file"
+    sed -i "s/{{DB_PASSWORD}}/$DB_PASSWORD/g" "$file"
+    sed -i "s/{{SERVICE_TITLE}}/$(echo "$SERVICE_NAME" | sed 's/.*/\u&/') Service/g" "$file"
+
+    # Remove .template extension
+    new_name="${file%.template}"
+    mv "$file" "$new_name"
+done
+
+# Create .gitkeep in modules directory
+touch "$TARGET_DIR/src/modules/.gitkeep"
+
+echo ""
+echo "✅ Microservice crm-${SERVICE_NAME} created at:"
+echo "   $TARGET_DIR"
+echo ""
+echo "📋 Next steps:"
+echo ""
+echo "   1. Add schema to crm-infra/scripts/00-init-service-schemas.sh:"
+echo "      create_role_if_missing \"${DB_USER}\" \"\${${SERVICE_NAME^^}_DB_PASSWORD:-${DB_PASSWORD}}\""
+echo ""
+echo "   2. Add service to crm-infra/docker-compose.yml"
+echo ""
+echo "   3. Add proxy endpoint to crm-infra/gateway/endpoints/${SERVICE_NAME}-proxy.json"
+echo ""
+echo "   4. Install dependencies:"
+echo "      cd crm-${SERVICE_NAME} && pnpm install"
+echo ""
+echo "   5. Start development:"
+echo "      pnpm dev"
+echo ""
+echo "   6. Generate database schema:"
+echo "      pnpm db:push"
+echo ""

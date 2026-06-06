@@ -28,7 +28,7 @@
 
 ## Operational Rules
 
-- `start-project.ps1` is the canonical local bootstrap for Windows. Keep it predictable, fail-fast, and safe to rerun.
+- `start-local.ps1` is the canonical local bootstrap for Windows. Keep it predictable, fail-fast, and safe to rerun.
 - The root `krakend.json` is the runtime file used by Docker Compose. Treat it as generated from `gateway/build-krakend.mjs`.
 - CI should validate what the repo can guarantee in isolation. Optional cross-repo artifacts must not be asserted as mandatory unless CI provisions the required sibling repos.
 - Secrets, certificates, cookies, local state, and generated outputs outside the committed runtime contract must stay out of git.

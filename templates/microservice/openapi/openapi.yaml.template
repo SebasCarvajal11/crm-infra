@@ -1,0 +1,19 @@
+openapi: "3.0.3"
+info:
+  title: "{{SERVICE_TITLE}}"
+  version: "1.0.0"
+  description: "API documentation for {{SERVICE_NAME}} service"
+servers:
+  - url: "http://localhost:{{SERVICE_PORT}}"
+    description: "Local development"
+  - url: "http://localhost:8080"
+    description: "Via API Gateway"
+paths:
+  /health:
+    get:
+      summary: "Health check"
+      responses:
+        "200":
+          description: "Service is healthy"
+        "503":
+          description: "Service is unhealthy"

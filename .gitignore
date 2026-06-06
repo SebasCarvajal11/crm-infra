@@ -1,39 +1,77 @@
+# Dependency directories
 node_modules/
+.pnpm-store/
+.yarn/
 .pnp
 .pnp.js
-.pnpm-store/
 
+# Build outputs (exclude shared contracts dist)
 dist/
+!contracts/dist/
+!contracts/dist/**
 build/
 out/
 .tanstack/
-coverage/
+*.tsbuildinfo
 
+# Environment files
 .env
 .env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+.env.development.local
+.env.test.local
+.env.production.local
+.env.staging.local
 .env.*.local
+.env.*
+!.env.example
+!.env.production.example
+!.env.docker
+
+# Keys and Certificates
 *.pem
 *.key
 cookies.jar
-*.pid
-*.out
-*.err
 
+# Logs
 logs/
 *.log
+*.out
+*.err
+*.pid
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
-*.tmp
-*.temp
-*.orig
-*.tsbuildinfo
+ehthumbs.db
+Desktop.ini
 
+# IDE and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*~
+
+# Testing and Reports
+coverage/
+.nyc_output
+playwright-report/
+test-results/
+
+# KrakenD and deploy runtime configurations
 gateway/output/
 deploy/runtime/*
 !deploy/runtime/.gitkeep
 krakend.blue.json
 krakend.green.json
-playwright-report/
-test-results/

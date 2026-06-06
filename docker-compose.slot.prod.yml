@@ -20,6 +20,8 @@ services:
       context: ../crm-auth
     restart: always
     command: ["pnpm", "worker:email"]
+    healthcheck:
+      disable: true
     env_file:
       - ../crm-auth/.env.production
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
@@ -28,13 +30,32 @@ services:
       - shared_backplane
     depends_on:
       auth:
-        condition: service_started
+        condition: service_healthy
+
+  auth-identity-outbox-worker:
+    build:
+      context: ../crm-auth
+    restart: always
+    command: ["pnpm", "worker:identity-outbox"]
+    healthcheck:
+      disable: true
+    env_file:
+      - ../crm-auth/.env.production
+      - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
+    networks:
+      - default
+      - shared_backplane
+    depends_on:
+      auth:
+        condition: service_healthy
 
   auth-token-cleanup-worker:
     build:
       context: ../crm-auth
     restart: always
     command: ["pnpm", "worker:cleanup"]
+    healthcheck:
+      disable: true
     env_file:
       - ../crm-auth/.env.production
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
@@ -43,7 +64,7 @@ services:
       - shared_backplane
     depends_on:
       auth:
-        condition: service_started
+        condition: service_healthy
 
   media:
     build:
@@ -75,33 +96,49 @@ services:
       - shared_backplane
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
-    depends_on:
-      auth:
-        condition: service_started
-      media:
-        condition: service_started
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 20s
       timeout: 5s
       retries: 10
 
-  collab-orphan-oci-worker:
+  media-command-worker:
     build:
-      context: ../crm-collab
+      context: ../crm-media
     restart: always
-    command: ["pnpm", "worker:orphan-oci"]
+    command: ["pnpm", "worker:media-commands"]
+    healthcheck:
+      disable: true
     env_file:
-      - ../crm-collab/.env.production
-      - ./deploy/runtime/collab.${APP_SLOT:?APP_SLOT is required}.env
+      - ../crm-media/.env.production
+      - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
     networks:
       - default
       - shared_backplane
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
     depends_on:
-      collab:
-        condition: service_started
+      media:
+        condition: service_healthy
+
+  media-quarantine-scan-worker:
+    build:
+      context: ../crm-media
+    restart: always
+    command: ["pnpm", "worker:quarantine-scan"]
+    healthcheck:
+      disable: true
+    env_file:
+      - ../crm-media/.env.production
+      - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
+    networks:
+      - default
+      - shared_backplane
+    volumes:
+      - /opt/cima/secrets:/opt/cima/secrets:ro
+    depends_on:
+      media:
+        condition: service_healthy
 
   api-gateway:
     image: krakend:latest
@@ -110,14 +147,6 @@ services:
       - "127.0.0.1:${GATEWAY_SLOT_HOST_PORT:?GATEWAY_SLOT_HOST_PORT is required}:8080"
     volumes:
       - ./deploy/runtime/krakend.${APP_SLOT:?APP_SLOT is required}.json:/etc/krakend/krakend.json:ro
-      - ./gateway/output:/etc/krakend/static:ro
-    depends_on:
-      auth:
-        condition: service_started
-      collab:
-        condition: service_started
-      media:
-        condition: service_started
     networks:
       - default
 

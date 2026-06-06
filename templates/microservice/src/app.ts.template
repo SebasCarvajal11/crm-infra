@@ -1,0 +1,57 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { createOpenApiRoutes } from "./openapi/openapi.routes";
+import { onError } from "./shared/middlewares/error-handler.middleware";
+import { checkPostgres, checkRedis, buildHealthResponse } from "./shared/health";
+import { pool } from "./db/connection";
+import { getRedisConnection } from "./shared/redis";
+import { initLogger } from "./shared/logger";
+import { requestLoggerMiddleware } from "./shared/middlewares/request-logger.middleware";
+
+const logger = initLogger("mod-{{SERVICE_NAME}}");
+const healthStartTime = Date.now();
+
+export const createApp = () => {
+  const app = new Hono();
+
+  // --- Middlewares Globales ---
+  app.use("*", requestLoggerMiddleware());
+
+  if (process.env.CORS_ORIGIN) {
+    app.use(
+      "*",
+      cors({
+        origin: process.env.CORS_ORIGIN,
+        credentials: true,
+      })
+    );
+  }
+
+  // --- OpenAPI + Swagger UI ---
+  app.route("/", createOpenApiRoutes());
+
+  // --- API v1 routes ---
+  // TODO: Add your routes here
+  // const v1 = new Hono();
+  // v1.route("/{{SERVICE_NAME}}", exampleRoutes);
+  // app.route("/api/v1", v1);
+
+  // --- Health Check ---
+  app.get("/health", async (c) => {
+    const [pg, redis] = await Promise.all([
+      checkPostgres(pool),
+      checkRedis(getRedisConnection()),
+    ]);
+
+    const { body, status } = buildHealthResponse("mod-{{SERVICE_NAME}}", healthStartTime, [pg, redis]);
+    return c.json(body, status);
+  });
+
+  // --- Manejador Global de Errores ---
+  app.onError(onError);
+
+  // --- 404 ---
+  app.notFound((c) => c.json({ error: "Ruta no encontrada" }, 404));
+
+  return app;
+};

@@ -3,10 +3,11 @@
 /** @type {import('@playwright/test').PlaywrightTestConfig} */
 const config = {
   testDir: '.',
-  testMatch: ['frontend-cutover.spec.js'],
+  testMatch: ['*.spec.js'],
   timeout: 120_000,
   fullyParallel: false,
   workers: 1,
+  globalSetup: require.resolve('./playwright.ensure-workers.cjs'),
   use: {
     browserName: 'chromium',
     channel: 'chrome',

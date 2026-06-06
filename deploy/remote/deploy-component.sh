@@ -22,6 +22,14 @@ require_command() {
   fi
 }
 
+require_env() {
+  local name="$1"
+  if [[ -z "${!name:-}" ]]; then
+    echo "Missing required environment variable: $name" >&2
+    exit 1
+  fi
+}
+
 for cmd in git docker pnpm node flock curl grep cut cat mkdir rm cp; do
   require_command "$cmd"
 done
@@ -137,6 +145,7 @@ ensure_shared_docker_primitives() {
   docker network inspect crm-shared-backplane >/dev/null 2>&1 || docker network create crm-shared-backplane >/dev/null
   docker volume inspect crm-infra_postgres_data_prod >/dev/null 2>&1 || docker volume create crm-infra_postgres_data_prod >/dev/null
   docker volume inspect crm-infra_clamav_data_prod >/dev/null 2>&1 || docker volume create crm-infra_clamav_data_prod >/dev/null
+  docker volume inspect crm-infra_redis_data_prod >/dev/null 2>&1 || docker volume create crm-infra_redis_data_prod >/dev/null
 }
 
 container_db_url() {
@@ -155,6 +164,10 @@ host_db_url() {
 container_redis_url() {
   local runtime_url="$1"
   local normalized
+  if [[ -z "$runtime_url" ]]; then
+    printf 'redis://redis:6379'
+    return
+  fi
   normalized="$(printf '%s' "$runtime_url" | sed -E 's#redis://[^/]+#redis://redis:6379#')"
   printf '%s' "$normalized"
 }
@@ -169,7 +182,7 @@ dump_logs() {
     APP_SLOT="$target_slot" \
     GATEWAY_SLOT_HOST_PORT="$(slot_gateway_port "$target_slot")" \
     FRONTEND_SLOT_HOST_PORT="$(slot_frontend_port "$target_slot")" \
-    docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" logs --tail=150 auth media collab api-gateway frontend auth-email-worker auth-token-cleanup-worker collab-orphan-oci-worker || true
+    docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" logs --tail=150 auth media collab api-gateway frontend auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
   fi
   if [[ -n "$previous_slot" && "$previous_slot" != "$target_slot" ]]; then
     APP_SLOT="$previous_slot" \
@@ -286,29 +299,46 @@ wait_for_compose_services_running() {
 
 write_runtime_env_files() {
   local slot="$1"
-  local auth_database_url auth_redis_url collab_database_url media_database_url
+  local auth_database_url auth_redis_url collab_database_url collab_redis_url media_database_url media_redis_url
 
   auth_database_url="$(grep '^DATABASE_URL=' "$auth_dir/.env.production" | head -n 1 | cut -d= -f2-)"
   auth_redis_url="$(grep '^REDIS_URL=' "$auth_dir/.env.production" | head -n 1 | cut -d= -f2-)"
   collab_database_url="$(grep '^DATABASE_URL=' "$collab_dir/.env.production" | head -n 1 | cut -d= -f2-)"
+  collab_redis_url="$(grep '^REDIS_URL=' "$collab_dir/.env.production" | head -n 1 | cut -d= -f2-)"
   media_database_url="$(grep '^DATABASE_URL=' "$media_dir/.env.production" | head -n 1 | cut -d= -f2-)"
+  media_redis_url="$(grep '^REDIS_URL=' "$media_dir/.env.production" | head -n 1 | cut -d= -f2-)"
 
   cat > "$runtime_dir/auth.${slot}.env" <<EOF
 DATABASE_URL=$(container_db_url "$auth_database_url")
 REDIS_URL=$(container_redis_url "$auth_redis_url")
+GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
 EOF
 
   cat > "$runtime_dir/collab.${slot}.env" <<EOF
 DATABASE_URL=$(container_db_url "$collab_database_url")
-MOD_AUTH_URL=http://auth:3000
-MOD_MEDIA_URL=http://media:3002
+REDIS_URL=$(container_redis_url "$collab_redis_url")
+GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
+AUTH_EVENTS_STREAM_KEY=auth:events
+AUTH_EVENTS_CONSUMER_GROUP=collab-auth-consumers
+AUTH_EVENTS_MAX_RETRIES=3
+AUTH_EVENTS_PENDING_IDLE_MS=30000
+COLLAB_EVENTS_DLQ_STREAM_KEY=collab:events:dlq
+MEDIA_COMMANDS_STREAM_KEY=media:commands
+MEDIA_RESPONSES_STREAM_KEY=media:responses
+MEDIA_RESPONSES_CONSUMER_GROUP=collab-media-response-consumers
+MEDIA_COMMAND_TIMEOUT_MS=8000
+JWKS_URI=http://auth:3000/.well-known/jwks.json
 EOF
 
   cat > "$runtime_dir/media.${slot}.env" <<EOF
 DATABASE_URL=$(container_db_url "$media_database_url")
+REDIS_URL=$(container_redis_url "$media_redis_url")
+GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
 CLAMAV_HOST=clamav-scanner
 CLAMAV_PORT=3310
-MOD_COLLAB_URL=http://collab:3001
+MEDIA_COMMANDS_STREAM_KEY=media:commands
+MEDIA_RESPONSES_STREAM_KEY=media:responses
+MEDIA_COMMANDS_CONSUMER_GROUP=media-command-consumers
 EOF
 }
 
@@ -349,12 +379,11 @@ wait_for_shared_services() {
 build_gateway_for_slot() {
   local slot="$1"
   run_in_repo "$stack_dir" env \
-    KRAKEND_AUTH_HOST="http://auth:3000" \
-    KRAKEND_COLLAB_HOST="http://collab:3001" \
-    KRAKEND_MEDIA_HOST="http://media:3002" \
+    KRAKEND_AUTH_HOST="${KRAKEND_AUTH_HOST}" \
+    KRAKEND_COLLAB_HOST="${KRAKEND_COLLAB_HOST}" \
+    KRAKEND_MEDIA_HOST="${KRAKEND_MEDIA_HOST}" \
+    KRAKEND_PORT="8080" \
     GATEWAY_TRUST_SECRET="${GATEWAY_TRUST_SECRET}" \
-    CIMA_AUTH_PATH="$auth_dir" \
-    CIMA_COLLAB_PATH="$collab_dir" \
     pnpm gateway:build --output "$runtime_dir/krakend.${slot}.json"
 }
 
@@ -379,7 +408,7 @@ stop_slot_workers() {
   local project
   project="$(slot_project "$slot")"
   if slot_has_project "$slot"; then
-    APP_SLOT="$slot" docker compose -p "$project" -f "$slot_compose" stop auth-email-worker auth-token-cleanup-worker collab-orphan-oci-worker || true
+    APP_SLOT="$slot" docker compose -p "$project" -f "$slot_compose" stop auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
   fi
 }
 
@@ -393,9 +422,9 @@ start_slot_workers() {
   APP_SLOT="$slot" \
   GATEWAY_SLOT_HOST_PORT="$gateway_port" \
   FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-  docker compose -p "$project" -f "$slot_compose" up -d auth-email-worker auth-token-cleanup-worker collab-orphan-oci-worker
+  docker compose -p "$project" -f "$slot_compose" up -d auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
 
-  wait_for_compose_services_running "$slot" auth-email-worker auth-token-cleanup-worker collab-orphan-oci-worker
+  wait_for_compose_services_running "$slot" auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
 }
 
 destroy_slot() {
@@ -462,11 +491,12 @@ if [[ -z "${GATEWAY_TRUST_SECRET:-}" ]]; then
   exit 1
 fi
 
+require_env KRAKEND_AUTH_HOST
+require_env KRAKEND_COLLAB_HOST
+require_env KRAKEND_MEDIA_HOST
+
 if [[ -z "${CSP_CONNECT_SRC_EXTRA:-}" || -z "${CSP_IMG_SRC_EXTRA:-}" ]]; then
   oci_region="$(grep '^OCI_REGION=' "$media_dir/.env.production" 2>/dev/null | head -n 1 | cut -d= -f2-)"
-  if [[ -z "$oci_region" ]]; then
-    oci_region="$(grep '^OCI_REGION=' "$collab_dir/.env.production" 2>/dev/null | head -n 1 | cut -d= -f2-)"
-  fi
   if [[ -n "$oci_region" ]]; then
     oci_origin="https://objectstorage.${oci_region}.oraclecloud.com"
     if [[ -z "${CSP_CONNECT_SRC_EXTRA:-}" ]]; then

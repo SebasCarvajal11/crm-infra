@@ -1,54 +1,349 @@
 services:
-  # Tu base de datos actual
   postgres_db:
     image: postgres:15-alpine
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: rootpassword
       POSTGRES_DB: crm_database
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:-authpassword}
+      COLLAB_DB_PASSWORD: ${COLLAB_DB_PASSWORD:-collabpassword}
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:-mediapassword}
     ports:
       - "${POSTGRES_HOST_PORT:-15432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/00-init-service-schemas.sh:/docker-entrypoint-initdb.d/00-init-service-schemas.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d crm_database"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - shared_backplane
 
-  # Redis — cola de emails BullMQ para mod-auth (y otros servicios si lo necesitan).
-  # Desde el host (Node en tu maquina): REDIS_URL=redis://127.0.0.1:6379
-  # Desde otro contenedor en esta red: REDIS_URL=redis://redis:6379
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    command: redis-server --appendonly yes --appendfsync everysec
     ports:
       - "${REDIS_HOST_PORT:-16379}:6379"
-    # Sin persistencia: cola de emails no necesita sobrevivir a reinicios del daemon.
-    command: redis-server --save "" --appendonly no
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - shared_backplane
 
   clamav-scanner:
     image: clamav/clamav-debian:latest
     restart: unless-stopped
     ports:
       - "${CLAMAV_HOST_PORT:-13310}:3310"
+    healthcheck:
+      test: ["CMD-SHELL", "echo PING | nc localhost 3310 | grep -q PONG"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - shared_backplane
 
-  # --- API Gateway (KrakenD): único punto de entrada del SPA hacia los MS ---
-  # Requiere crm-auth escuchando en el host :3000 (pnpm dev o pnpm start en crm-auth).
-  # El contenedor usa host.docker.internal para alcanzar ese proceso.
+  krakend-config:
+    image: node:22-alpine
+    working_dir: /workspace
+    environment:
+      GATEWAY_TRUST_SECRET: ${GATEWAY_TRUST_SECRET:?GATEWAY_TRUST_SECRET is required}
+      KRAKEND_AUTH_HOST: ${KRAKEND_AUTH_HOST:-http://crm-auth:3000}
+      KRAKEND_COLLAB_HOST: ${KRAKEND_COLLAB_HOST:-http://crm-collab:3001}
+      KRAKEND_MEDIA_HOST: ${KRAKEND_MEDIA_HOST:-http://crm-media:3002}
+    volumes:
+      - ./gateway:/workspace/gateway:ro
+      - ../crm-auth/gateway:/workspace/crm-auth/gateway:ro
+      - ../crm-collab/gateway:/workspace/crm-collab/gateway:ro
+      - ../crm-media/gateway:/workspace/crm-media/gateway:ro
+      - krakend_config:/output
+    command: ["node", "gateway/build-krakend.mjs", "--output", "/output/krakend.json"]
+    networks:
+      - shared_backplane
+
+  crm-auth:
+    build:
+      context: ../crm-auth
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../crm-auth/.env
+    environment:
+      DATABASE_URL: postgresql://auth_user:${AUTH_DB_PASSWORD:-authpassword}@postgres_db:5432/crm_database
+      DB_SCHEMA: schema_auth
+      PORT: 3000
+      REDIS_URL: redis://redis:6379
+      GATEWAY_TRUST_SECRET: ${GATEWAY_TRUST_SECRET:?GATEWAY_TRUST_SECRET is required}
+      TRUST_GATEWAY_JWT_HEADERS: "true"
+      REFRESH_COOKIE_PATH: /api/v1/auth/refresh
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks:
+      - shared_backplane
+
+  crm-auth-email-worker:
+    build:
+      context: ../crm-auth
+      dockerfile: Dockerfile
+      additional_contexts:
+        cima_contracts: ../crm-infra/contracts
+    restart: unless-stopped
+    command: ["pnpm", "worker:email"]
+    healthcheck:
+      disable: true
+    env_file:
+      - ../crm-auth/.env
+    environment:
+      DATABASE_URL: postgresql://auth_user:${AUTH_DB_PASSWORD:-authpassword}@postgres_db:5432/crm_database
+      DB_SCHEMA: schema_auth
+      REDIS_URL: redis://redis:6379
+      GATEWAY_TRUST_SECRET: ${GATEWAY_TRUST_SECRET:?GATEWAY_TRUST_SECRET is required}
+    depends_on:
+      crm-auth:
+        condition: service_healthy
+    networks:
+      - shared_backplane
+
+  crm-auth-identity-outbox-worker:
+    build:
+      context: ../crm-auth
+      dockerfile: Dockerfile
+      additional_contexts:
+        cima_contracts: ../crm-infra/contracts
+    restart: unless-stopped
+    command: ["pnpm", "worker:identity-outbox"]
+    healthcheck:
+      disable: true
+    env_file:
+      - ../crm-auth/.env
+    environment:
+      DATABASE_URL: postgresql://auth_user:${AUTH_DB_PASSWORD:-authpassword}@postgres_db:5432/crm_database
+      DB_SCHEMA: schema_auth
+      REDIS_URL: redis://redis:6379
+      GATEWAY_TRUST_SECRET: ${GATEWAY_TRUST_SECRET:?GATEWAY_TRUST_SECRET is required}
+    depends_on:
+      crm-auth:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - shared_backplane
+
+  crm-auth-token-cleanup-worker:
+    build:
+      context: ../crm-auth
+      dockerfile: Dockerfile
+      additional_contexts:
+        cima_contracts: ../crm-infra/contracts
+    restart: unless-stopped
+    command: ["pnpm", "worker:cleanup"]
+    healthcheck:
+      disable: true
+    env_file:
+      - ../crm-auth/.env
+    environment:
+      DATABASE_URL: postgresql://auth_user:${AUTH_DB_PASSWORD:-authpassword}@postgres_db:5432/crm_database
+      DB_SCHEMA: schema_auth
+      REDIS_URL: redis://redis:6379
+      GATEWAY_TRUST_SECRET: ${GATEWAY_TRUST_SECRET:?GATEWAY_TRUST_SECRET is required}
+    depends_on:
+      crm-auth:
+        condition: service_healthy
+    networks:
+      - shared_backplane
+
+  crm-media:
+    build:
+      context: ../crm-media
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../crm-media/.env
+    environment:
+      DATABASE_URL: postgresql://media_user:${MEDIA_DB_PASSWORD:-mediapassword}@postgres_db:5432/crm_database
+      DB_SCHEMA: schema_media
+      PORT: 3002
+      REDIS_URL: redis://redis:6379
+      CLAMAV_HOST: clamav-scanner
+      CLAMAV_PORT: 3310
+      GATEWAY_TRUST_SECRET: ${GATEWAY_TRUST_SECRET:?GATEWAY_TRUST_SECRET is required}
+      OCI_CONFIG_SOURCE_FILE: /opt/cima/secrets/oci/oci.config
+      OCI_CONFIG_FILE_PATH: /tmp/cima-oci/oci.config
+      MEDIA_COMMANDS_STREAM_KEY: media:commands
+      MEDIA_RESPONSES_STREAM_KEY: media:responses
+      MEDIA_COMMANDS_CONSUMER_GROUP: media-command-consumers
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clamav-scanner:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ${OCI_CONFIG_HOST_DIR:?OCI_CONFIG_HOST_DIR is required}
+        target: ${OCI_CONFIG_CONTAINER_DIR:?OCI_CONFIG_CONTAINER_DIR is required}
+        read_only: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks:
+      - shared_backplane
+
+  crm-media-command-worker:
+    build:
+      context: ../crm-media
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["pnpm", "worker:media-commands"]
+    healthcheck:
+      disable: true
+    env_file:
+      - ../crm-media/.env
+    environment:
+      DATABASE_URL: postgresql://media_user:${MEDIA_DB_PASSWORD:-mediapassword}@postgres_db:5432/crm_database
+      DB_SCHEMA: schema_media
+      REDIS_URL: redis://redis:6379
+      CLAMAV_HOST: clamav-scanner
+      CLAMAV_PORT: 3310
+      GATEWAY_TRUST_SECRET: ${GATEWAY_TRUST_SECRET:?GATEWAY_TRUST_SECRET is required}
+      OCI_CONFIG_SOURCE_FILE: /opt/cima/secrets/oci/oci.config
+      OCI_CONFIG_FILE_PATH: /tmp/cima-oci/oci.config
+      MEDIA_COMMANDS_STREAM_KEY: media:commands
+      MEDIA_RESPONSES_STREAM_KEY: media:responses
+      MEDIA_COMMANDS_CONSUMER_GROUP: media-command-consumers
+    depends_on:
+      crm-media:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ${OCI_CONFIG_HOST_DIR:?OCI_CONFIG_HOST_DIR is required}
+        target: ${OCI_CONFIG_CONTAINER_DIR:?OCI_CONFIG_CONTAINER_DIR is required}
+        read_only: true
+    networks:
+      - shared_backplane
+
+  crm-media-quarantine-scan-worker:
+    build:
+      context: ../crm-media
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["pnpm", "worker:quarantine-scan"]
+    healthcheck:
+      disable: true
+    env_file:
+      - ../crm-media/.env
+    environment:
+      DATABASE_URL: postgresql://media_user:${MEDIA_DB_PASSWORD:-mediapassword}@postgres_db:5432/crm_database
+      DB_SCHEMA: schema_media
+      REDIS_URL: redis://redis:6379
+      CLAMAV_HOST: clamav-scanner
+      CLAMAV_PORT: 3310
+      GATEWAY_TRUST_SECRET: ${GATEWAY_TRUST_SECRET:?GATEWAY_TRUST_SECRET is required}
+      OCI_CONFIG_SOURCE_FILE: /opt/cima/secrets/oci/oci.config
+      OCI_CONFIG_FILE_PATH: /tmp/cima-oci/oci.config
+    depends_on:
+      crm-media:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ${OCI_CONFIG_HOST_DIR:?OCI_CONFIG_HOST_DIR is required}
+        target: ${OCI_CONFIG_CONTAINER_DIR:?OCI_CONFIG_CONTAINER_DIR is required}
+        read_only: true
+    networks:
+      - shared_backplane
+
+  crm-collab:
+    build:
+      context: ../crm-collab
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../crm-collab/.env
+    environment:
+      DATABASE_URL: postgresql://collab_user:${COLLAB_DB_PASSWORD:-collabpassword}@postgres_db:5432/crm_database
+      DB_SCHEMA: schema_collab
+      PORT: 3001
+      REDIS_URL: redis://redis:6379
+      GATEWAY_TRUST_SECRET: ${GATEWAY_TRUST_SECRET:?GATEWAY_TRUST_SECRET is required}
+      AUTH_EVENTS_STREAM_KEY: auth:events
+      AUTH_EVENTS_CONSUMER_GROUP: collab-auth-consumers
+      AUTH_EVENTS_MAX_RETRIES: 3
+      AUTH_EVENTS_PENDING_IDLE_MS: 30000
+      COLLAB_EVENTS_DLQ_STREAM_KEY: collab:events:dlq
+      MEDIA_COMMANDS_STREAM_KEY: media:commands
+      MEDIA_RESPONSES_STREAM_KEY: media:responses
+      MEDIA_RESPONSES_CONSUMER_GROUP: collab-media-response-consumers
+      MEDIA_COMMAND_TIMEOUT_MS: 8000
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks:
+      - shared_backplane
+
   api-gateway:
     image: krakend:latest
+    restart: unless-stopped
     ports:
       - "${GATEWAY_HOST_PORT:-18080}:8080"
     volumes:
-      - ./krakend.json:/etc/krakend/krakend.json:ro
-      - ./gateway/output:/etc/krakend/static:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - krakend_config:/etc/krakend:ro
+    command: ["run", "-c", "/etc/krakend/krakend.json"]
     depends_on:
-      - postgres_db
-      - clamav-scanner
+      krakend-config:
+        condition: service_completed_successfully
+    networks:
+      - shared_backplane
+
+  crm-frontend:
+    build:
+      context: ../crm-frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_HOST_PORT:-5173}:80"
+    depends_on:
+      api-gateway:
+        condition: service_started
+    networks:
+      - shared_backplane
 
 volumes:
   postgres_data:
+  redis_data:
+  krakend_config:
+
+networks:
+  shared_backplane:
+    name: cima-crm-local-backplane
+    driver: bridge

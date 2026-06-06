@@ -1,5 +1,4 @@
 {
-  "_comment": "Endpoints BFF — agregacion nativa de KrakenD (multi-backend paralelo).",
   "endpoints": [
     {
       "endpoint": "/bff/dashboard",
