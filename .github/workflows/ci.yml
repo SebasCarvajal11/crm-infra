@@ -114,6 +114,9 @@ jobs:
           cp ../crm-collab/.env.production.example ../crm-collab/.env.production
           cp ../crm-media/.env.production.example ../crm-media/.env.production
           cp ../crm-frontend/.env.production.example ../crm-frontend/.env.production
+          cp ../crm-auth/.env.production.example ../crm-auth/.env
+          cp ../crm-collab/.env.production.example ../crm-collab/.env
+          cp ../crm-media/.env.production.example ../crm-media/.env
           mkdir -p deploy/runtime
           cat > deploy/runtime/edge.conf <<'EOF'
           server {
