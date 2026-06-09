@@ -8,7 +8,7 @@ scrape_configs:
   # API Gateway
   - job_name: krakend
     static_configs:
-      - targets: ["api-gateway:9091"]
+      - targets: ["api-gateway:8090"]
         labels:
           service: krakend
 
