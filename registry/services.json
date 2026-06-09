@@ -1,0 +1,133 @@
+[
+  {
+    "name": "auth",
+    "repo": "SebasCarvajal11/crm-auth",
+    "port": 3000,
+    "schema": "schema_auth",
+    "composeService": "auth",
+    "manifestPath": "crm-auth/gateway/gateway.manifest.json",
+    "composeFile": "../crm-auth/docker-compose.yml",
+    "dbInitScript": "db:bootstrap",
+    "dbMigrateScript": "db:migrate",
+    "dbSetupScripts": [
+      "db:bootstrap",
+      "db:push",
+      "db:partition-audit-migrate"
+    ],
+    "requiredSecrets": [
+      "JWT_PRIVATE_KEY",
+      "JWT_PUBLIC_KEY"
+    ],
+    "secretRotationDays": 90,
+    "workers": [
+      {
+        "name": "auth-email-worker",
+        "command": [
+          "pnpm",
+          "worker:email"
+        ]
+      },
+      {
+        "name": "auth-identity-outbox-worker",
+        "command": [
+          "pnpm",
+          "worker:identity-outbox"
+        ]
+      },
+      {
+        "name": "auth-token-cleanup-worker",
+        "command": [
+          "pnpm",
+          "worker:cleanup"
+        ]
+      }
+    ],
+    "circuitBreaker": {
+      "max_errors": 3,
+      "interval": 60,
+      "timeout": 10
+    }
+  },
+  {
+    "name": "collab",
+    "repo": "SebasCarvajal11/crm-collab",
+    "port": 3001,
+    "schema": "schema_collab",
+    "composeService": "collab",
+    "manifestPath": "crm-collab/gateway/gateway.manifest.json",
+    "composeFile": "../crm-collab/docker-compose.yml",
+    "dbInitScript": "db:bootstrap",
+    "dbMigrateScript": "db:migrate",
+    "dbSetupScripts": [
+      "db:bootstrap",
+      "db:push"
+    ],
+    "requiredSecrets": [
+      "SERVICE_JWT_PRIVATE_KEY",
+      "SERVICE_JWT_PUBLIC_KEY"
+    ],
+    "secretRotationDays": 90,
+    "workers": [
+      {
+        "name": "collab-outbox-worker",
+        "command": [
+          "pnpm",
+          "worker:collab-outbox"
+        ]
+      }
+    ],
+    "circuitBreaker": {
+      "max_errors": 3,
+      "interval": 60,
+      "timeout": 10
+    }
+  },
+  {
+    "name": "media",
+    "repo": "SebasCarvajal11/crm-media",
+    "port": 3002,
+    "schema": "schema_media",
+    "composeService": "media",
+    "manifestPath": "crm-media/gateway/gateway.manifest.json",
+    "composeFile": "../crm-media/docker-compose.yml",
+    "dbInitScript": "db:bootstrap",
+    "dbMigrateScript": "db:push",
+    "dbSetupScripts": [
+      "db:bootstrap",
+      "db:push"
+    ],
+    "requiredSecrets": [
+      "COLLAB_JWT_PUBLIC_KEY"
+    ],
+    "workers": [
+      {
+        "name": "media-command-worker",
+        "command": [
+          "pnpm",
+          "worker:media-commands"
+        ]
+      },
+      {
+        "name": "media-quarantine-scan-worker",
+        "command": [
+          "pnpm",
+          "worker:quarantine-scan"
+        ]
+      }
+    ],
+    "circuitBreaker": {
+      "max_errors": 3,
+      "interval": 60,
+      "timeout": 10
+    }
+  },
+  {
+    "name": "frontend",
+    "repo": "SebasCarvajal11/crm-frontend",
+    "port": 80,
+    "composeService": "frontend",
+    "composeFile": "../crm-frontend/docker-compose.yml",
+    "requiredSecrets": [],
+    "workers": []
+  }
+]

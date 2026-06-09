@@ -1,39 +1,84 @@
-# AGENTS
+# AGENTS — crm-{{SERVICE_NAME}}
 
 ## Purpose
 
-`crm-{{SERVICE_NAME}}` is the {{SERVICE_NAME}} service for CIMA CRM. It owns [TODO: describe domain responsibilities].
+`crm-{{SERVICE_NAME}}` is the {{SERVICE_TITLE}} service for CIMA CRM. It owns [TODO: describe domain responsibilities].
 
-## System Boundaries
+## Owned Resources
 
-- Owns [TODO: list owned domain capabilities]
-- Depends on [TODO: list dependencies on other services]
-- Must not absorb identity, collaboration, or media business rules
+- **PostgreSQL schema**: `schema_{{SERVICE_NAME}}` (role: `{{SERVICE_NAME}}_user`)
+- **Redis streams** (if applicable): [TODO: list stream keys]
+- **Redis queues** (if applicable): [TODO: list BullMQ queue names]
+
+## Fronteras con otros servicios
+
+- **Upstream dependencies** (services this service consumes events/data from):
+  - [TODO: e.g., `crm-auth` — consumes `stream:auth.identity` to maintain local identity snapshots]
+
+- **Downstream consumers** (services this service publishes events to):
+  - [TODO: e.g., publishes `stream:{{SERVICE_NAME}}.events` consumed by ...]
+
+- **Peer coordination** (services coordinated via events):
+  - [TODO: list peers]
+
+- **Shared infrastructure**:
+  - PostgreSQL: single instance, isolated to `schema_{{SERVICE_NAME}}` via role `{{SERVICE_NAME}}_user`
+  - Redis: shared instance, namespaced by stream/queue key conventions
+  - [TODO: OCI Object Storage if applicable]
+
+- **Out of scope** (explicitly NOT this service's responsibility):
+  - Authentication and JWT issuance → `crm-auth`
+  - File storage and antivirus → `crm-media`
+  - [TODO: add more as needed]
 
 ## Architecture Rules
 
 - Preserve separation between transport, application logic, repositories, and infrastructure.
-- Keep controllers and route handlers thin. Business rules belong in services; persistence belongs in repositories.
-- Cross-service calls must stay behind explicit shared clients.
+- Keep controllers/route handlers thin. Business rules → services; persistence → repositories.
+- Cross-service calls must stay behind explicit shared clients, never raw HTTP from handlers.
+- Microservices must not call each other synchronously for domain data; use events.
+- The only exception is JWKS validation from `crm-auth`, which is a justified synchronous call.
 - Security-sensitive behavior must prefer fail-fast validation over permissive defaults.
+- All errors MUST be returned as `NormalizedError` (`code`, `message`, `details`, `traceId`, `correlationId`).
 
 ## Code Organization
 
-- `src/modules/{domain}`: feature modules with controller, service, repository, routes, schemas.
-- `src/shared`: infrastructure adapters, middleware, cross-service clients.
-- `src/config`: runtime configuration and environment parsing.
-- `src/db`: schema, seed, and database scripts owned by this service.
-- `src/openapi`: published API contract.
-- `src/workers`: background processing.
+```
+src/
+├── app.ts              — Hono app factory
+├── server.ts           — HTTP server bootstrap
+├── config/
+│   └── env.ts          — Zod-validated environment
+├── db/
+│   ├── connection.ts   — Pool + Drizzle instance
+│   ├── schema.ts       — Drizzle schema (all tables in schema_{{SERVICE_NAME}})
+│   └── scripts/
+│       ├── bootstrap.ts — Idempotent role/schema provisioning (superuser)
+│       └── migrate.ts  — Drizzle migration runner
+├── modules/
+│   └── {domain}/       — Feature modules (router, service, repository, schemas)
+├── shared/
+│   ├── health.ts       — Health check utilities
+│   ├── logger.ts       — Pino structured logger + AsyncLocalStorage trace
+│   ├── redis.ts        — Redis connection factory
+│   ├── worker-health.ts — Worker liveness file writer
+│   └── middlewares/
+│       ├── error-handler.middleware.ts  — Global onError → NormalizedError
+│       └── request-logger.middleware.ts — traceId/correlationId injection
+├── openapi/            — OpenAPI YAML and Swagger routes
+└── workers/            — Background worker entrypoints
+```
 
-## Security and Operational Rules
+## Operational Rules
 
+- Use `pnpm` only. Never add `npm` commands, lockfiles, or docs.
+- `pnpm db:bootstrap` must be idempotent and safe to rerun without affecting other services.
+- Background workers expose liveness via `/tmp/worker-healthy` (written by `startWorkerHealthcheck`).
+- Workers must handle `SIGTERM` gracefully (finish current message, then exit).
 - Never commit real credentials, private keys, or secret material.
-- Keep gateway trust handling aligned with the rest of the platform.
-- Error handling should fail fast and avoid leaking internals.
 
 ## Development Rules
 
-- Use `pnpm` only. Never add `npm` commands, lockfiles, or documentation.
 - Keep documentation minimal: only `README.md` and this file.
-- Preserve build and lint health when making changes.
+- All new endpoints must be added to `gateway/gateway.manifest.json` and `openapi/openapi.yaml`.
+- Run `pnpm gateway:validate && pnpm openapi:check` before every PR.

@@ -12,6 +12,18 @@ on:
         required: false
         default: main
         type: string
+      composeFile:
+        description: Custom compose file path override
+        required: false
+        type: string
+      envFile:
+        description: Custom env file path override
+        required: false
+        type: string
+      healthCheckUrl:
+        description: Custom health check URL override
+        required: false
+        type: string
     secrets:
       DEPLOY_SSH_HOST:
         required: true
@@ -76,5 +88,8 @@ jobs:
             export DEPLOY_BASE_DIR='$DEPLOY_BASE_DIR'; \
             export DEPLOY_BRANCH='$DEPLOY_BRANCH'; \
             export GITHUB_OWNER='$GITHUB_REPOSITORY_OWNER'; \
+            export COMPOSE_FILE_OVERRIDE='${{ inputs.composeFile }}'; \
+            export ENV_FILE_OVERRIDE='${{ inputs.envFile }}'; \
+            export HEALTH_CHECK_URL_OVERRIDE='${{ inputs.healthCheckUrl }}'; \
             bash '$DEPLOY_BASE_DIR/crm-infra/deploy/remote/bootstrap-server.sh'; \
             bash '$DEPLOY_BASE_DIR/crm-infra/deploy/remote/deploy-component.sh' '$COMPONENT'"

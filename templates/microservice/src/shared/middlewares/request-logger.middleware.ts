@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { getLogger } from "../logger";
+import { getLogger, traceStorage } from "../logger";
 import { randomUUID } from "crypto";
 
 declare module "hono" {
@@ -13,44 +13,54 @@ export function requestLoggerMiddleware(): MiddlewareHandler {
   return async (c, next) => {
     const start = Date.now();
 
-    // Get or generate traceId
+    // Get or generate traceId and correlationId
     const traceId =
       c.req.header("x-request-id") ??
       c.req.header("x-trace-id") ??
       randomUUID();
 
-    // Create child logger with trace context
-    const logger = getLogger().child({
-      traceId,
-      method: c.req.method,
-      path: c.req.path,
-    });
+    const correlationId =
+      c.req.header("x-correlation-id") ??
+      c.req.header("x-user-id") ??
+      c.req.header("x-user-sub") ??
+      randomUUID();
 
-    // Store in context for route handlers
-    c.set("traceId", traceId);
-    c.set("requestLogger", logger);
+    await traceStorage.run({ traceId, correlationId }, async () => {
+      // Create child logger with trace context
+      const logger = getLogger().child({
+        traceId,
+        correlationId,
+        method: c.req.method,
+        path: c.req.path,
+      });
 
-    // Set traceId in response headers
-    c.header("x-trace-id", traceId);
+      // Store in context for route handlers
+      c.set("traceId", traceId);
+      c.set("requestLogger", logger);
 
-    // Log request
-    logger.info({
-      msg: "request started",
-      query: c.req.query(),
-    });
+      // Set trace/correlation headers in response
+      c.header("x-trace-id", traceId);
+      c.header("x-correlation-id", correlationId);
 
-    await next();
+      // Log request
+      logger.info({
+        msg: "request started",
+        query: c.req.query(),
+      });
 
-    // Log response
-    const duration = Date.now() - start;
-    const status = c.res.status;
+      await next();
 
-    const logFn = status >= 500 ? "error" : status >= 400 ? "warn" : "info";
+      // Log response
+      const duration = Date.now() - start;
+      const status = c.res.status;
 
-    logger[logFn]({
-      msg: "request completed",
-      status,
-      duration,
+      const logFn = status >= 500 ? "error" : status >= 400 ? "warn" : "info";
+
+      logger[logFn]({
+        msg: "request completed",
+        status,
+        duration,
+      });
     });
   };
 }

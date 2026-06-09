@@ -1,0 +1,167 @@
+name: Reusable CI
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        required: true
+        type: string
+      runs_db:
+        required: false
+        type: boolean
+        default: false
+      runs_redis:
+        required: false
+        type: boolean
+        default: false
+      db_schema:
+        required: false
+        type: string
+        default: ""
+      test_command:
+        required: false
+        type: string
+        default: "pnpm test:unit"
+      install_hurl:
+        required: false
+        type: boolean
+        default: false
+      is_frontend:
+        required: false
+        type: boolean
+        default: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: rootpassword
+          POSTGRES_DB: crm_database
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U root -d crm_database"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://root:rootpassword@127.0.0.1:5432/crm_database
+      REDIS_URL: redis://127.0.0.1:6379
+      DB_SCHEMA: ${{ inputs.db_schema }}
+      NODE_ENV: test
+      GITHUB_TOKEN_CIMA: ${{ secrets.GITHUB_TOKEN_CIMA }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Hurl
+        if: ${{ inputs.install_hurl }}
+        shell: bash
+        run: |
+          HURL_VERSION=7.1.0
+          sudo apt-get update
+          curl --location --remote-name "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl_${HURL_VERSION}_amd64.deb"
+          sudo apt-get install -y "./hurl_${HURL_VERSION}_amd64.deb"
+
+      - name: Create CI env file for Auth
+        if: ${{ inputs.component == 'auth' }}
+        shell: bash
+        run: |
+          node -e "
+          const fs = require('node:fs');
+          const { generateKeyPairSync } = require('node:crypto');
+          const { privateKey, publicKey } = generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { type: 'spki', format: 'pem' },
+            privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+          });
+          const esc = (pem) => JSON.stringify(pem.trimEnd());
+          const lines = [
+            'DATABASE_URL=postgres://root:rootpassword@127.0.0.1:5432/crm_database',
+            'REDIS_URL=redis://127.0.0.1:6379',
+            'NODE_ENV=test',
+            'EXPOSE_TEMP_PASSWORDS=true',
+            'PORT=3000',
+            'REFRESH_COOKIE_PATH=/auth/refresh',
+            'MAIL_TRANSPORT=log',
+            'APP_PUBLIC_URL=http://localhost:5173',
+            'ADMIN_INVITE_SECRET=test-admin-secret-123',
+            \`JWT_PRIVATE_KEY=\${esc(privateKey)}\`,
+            \`JWT_PUBLIC_KEY=\${esc(publicKey)}\`,
+            'JWT_KID=mod-auth-rsa-1',
+          ];
+          fs.writeFileSync('.env', lines.join('\n') + '\n');
+          "
+
+      - name: Create generic CI env file
+        if: ${{ inputs.runs_db && inputs.component != 'auth' }}
+        shell: bash
+        run: |
+          echo "DATABASE_URL=postgres://root:rootpassword@127.0.0.1:5432/crm_database" > .env
+          echo "REDIS_URL=redis://127.0.0.1:6379" >> .env
+          echo "DB_SCHEMA=${{ inputs.db_schema }}" >> .env
+          echo "NODE_ENV=test" >> .env
+
+      - name: Lint
+        if: ${{ inputs.is_frontend }}
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+
+      - name: Validate gateway manifest
+        if: ${{ !inputs.is_frontend }}
+        run: pnpm gateway:validate
+
+      - name: Validate OpenAPI contract
+        if: ${{ !inputs.is_frontend }}
+        run: pnpm openapi:check
+
+      - name: Prepare schema
+        if: ${{ inputs.runs_db }}
+        run: pnpm db:push
+
+      - name: Run test suite
+        run: ${{ inputs.test_command }}
+
+      - name: Build production image
+        run: docker build -t crm-${{ inputs.component }}:ci .

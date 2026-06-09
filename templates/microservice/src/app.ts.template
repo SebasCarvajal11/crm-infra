@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { createOpenApiRoutes } from "./openapi/openapi.routes";
+import { env } from "./config/env";
 import { onError } from "./shared/middlewares/error-handler.middleware";
+import { requestLoggerMiddleware } from "./shared/middlewares/request-logger.middleware";
 import { checkPostgres, checkRedis, buildHealthResponse } from "./shared/health";
 import { pool } from "./db/connection";
 import { getRedisConnection } from "./shared/redis";
 import { initLogger } from "./shared/logger";
-import { requestLoggerMiddleware } from "./shared/middlewares/request-logger.middleware";
 
-const logger = initLogger("mod-{{SERVICE_NAME}}");
+const logger = initLogger("crm-{{SERVICE_NAME}}");
 const healthStartTime = Date.now();
 
 export const createApp = () => {
@@ -20,21 +20,14 @@ export const createApp = () => {
   if (process.env.CORS_ORIGIN) {
     app.use(
       "*",
-      cors({
-        origin: process.env.CORS_ORIGIN,
-        credentials: true,
-      })
+      cors({ origin: process.env.CORS_ORIGIN, credentials: true })
     );
   }
 
-  // --- OpenAPI + Swagger UI ---
-  app.route("/", createOpenApiRoutes());
-
-  // --- API v1 routes ---
-  // TODO: Add your routes here
-  // const v1 = new Hono();
-  // v1.route("/{{SERVICE_NAME}}", exampleRoutes);
-  // app.route("/api/v1", v1);
+  // --- API Routes ---
+  // TODO: Import and mount your feature routers here
+  // import { exampleRouter } from "./modules/example/example.router";
+  // app.route("/{{SERVICE_NAME}}", exampleRouter);
 
   // --- Health Check ---
   app.get("/health", async (c) => {
@@ -42,16 +35,18 @@ export const createApp = () => {
       checkPostgres(pool),
       checkRedis(getRedisConnection()),
     ]);
-
-    const { body, status } = buildHealthResponse("mod-{{SERVICE_NAME}}", healthStartTime, [pg, redis]);
+    const { body, status } = buildHealthResponse(
+      "crm-{{SERVICE_NAME}}",
+      env.SERVICE_VERSION ?? "1.0.0",
+      healthStartTime,
+      [pg, redis]
+    );
     return c.json(body, status);
   });
 
-  // --- Manejador Global de Errores ---
+  // --- Error Handler & 404 ---
   app.onError(onError);
-
-  // --- 404 ---
-  app.notFound((c) => c.json({ error: "Ruta no encontrada" }, 404));
+  app.notFound((c) => c.json({ code: "NOT_FOUND", message: "Route not found" }, 404));
 
   return app;
 };

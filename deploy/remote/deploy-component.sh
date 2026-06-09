@@ -113,6 +113,52 @@ sync_repo() {
   git -C "$path" checkout --force -B "$branch" "origin/$branch"
 }
 
+version_file() {
+  local slot="$1"
+  printf '%s/.active-versions-%s' "$base_dir" "$slot"
+}
+
+get_active_version() {
+  local slot="$1"
+  local comp="$2"
+  local file
+  file="$(version_file "$slot")"
+  if [[ -f "$file" ]]; then
+    local val
+    val="$(grep "^${comp}=" "$file" | cut -d= -f2- || echo "")"
+    if [[ "$val" == *"@"* ]]; then
+      echo "${val#*@}"
+    else
+      echo "$val"
+    fi
+  else
+    echo ""
+  fi
+}
+
+sync_and_resolve_component() {
+  local name="$1"
+  local dir="$2"
+  local requested_version="${3:-}"
+
+  # If no version was explicitly requested, try to get it from the previous slot's registry
+  if [[ -z "$requested_version" && -n "${previous_slot:-}" ]]; then
+    requested_version="$(get_active_version "$previous_slot" "$name")"
+  fi
+
+  # If still empty (e.g., first deployment or no registry entry), default to origin/$branch
+  if [[ -z "$requested_version" ]]; then
+    requested_version="origin/$branch"
+  fi
+
+  echo "Syncing and checking out $name to: $requested_version"
+  ensure_repo "$dir"
+  git -C "$dir" fetch --prune origin "$branch"
+  git -C "$dir" checkout --force "$requested_version"
+  git -C "$dir" rev-parse HEAD
+}
+
+
 run_in_repo() {
   local path="$1"
   shift
@@ -261,6 +307,24 @@ wait_for_http_ok() {
   exit 1
 }
 
+verify_schema_version() {
+  local comp="$1"
+  local schema="$2"
+  local expected_version="$3"
+  
+  echo "Checking database schema version for ${comp}..."
+  local db_version
+  db_version="$(docker compose -p "$shared_project" -f "$shared_compose" exec -T postgres_db psql -U "${POSTGRES_USER:-root}" -d "${POSTGRES_DB:-crm_database}" -t -A -c "SELECT version FROM ${schema}.schema_version ORDER BY id DESC LIMIT 1;" 2>/dev/null | tr -d '[:space:]' || echo "unknown")"
+  
+  echo "  Expected version: ${expected_version}"
+  echo "  Database version: ${db_version}"
+  
+  if [[ "$db_version" == "unknown" ]]; then
+    echo "  [ERROR] Database schema version for ${comp} is unknown or table does not exist!" >&2
+    exit 1
+  fi
+}
+
 wait_for_compose_services_running() {
   local slot="$1"
   shift
@@ -299,50 +363,51 @@ wait_for_compose_services_running() {
 
 write_runtime_env_files() {
   local slot="$1"
-  local auth_database_url auth_redis_url collab_database_url collab_redis_url media_database_url media_redis_url
+  local sName sDir env_prod dest_env db_url redis_url semver
+  
+  # Get all services from registry using Node, filtering out frontend
+  local services_to_env
+  services_to_env=$(node -e '
+    const svcs = JSON.parse(require("fs").readFileSync("registry/services.json", "utf8"));
+    console.log(svcs.filter(s => s.name !== "frontend").map(s => s.name).join(" "));
+  ')
 
-  auth_database_url="$(grep '^DATABASE_URL=' "$auth_dir/.env.production" | head -n 1 | cut -d= -f2-)"
-  auth_redis_url="$(grep '^REDIS_URL=' "$auth_dir/.env.production" | head -n 1 | cut -d= -f2-)"
-  collab_database_url="$(grep '^DATABASE_URL=' "$collab_dir/.env.production" | head -n 1 | cut -d= -f2-)"
-  collab_redis_url="$(grep '^REDIS_URL=' "$collab_dir/.env.production" | head -n 1 | cut -d= -f2-)"
-  media_database_url="$(grep '^DATABASE_URL=' "$media_dir/.env.production" | head -n 1 | cut -d= -f2-)"
-  media_redis_url="$(grep '^REDIS_URL=' "$media_dir/.env.production" | head -n 1 | cut -d= -f2-)"
-
-  cat > "$runtime_dir/auth.${slot}.env" <<EOF
-DATABASE_URL=$(container_db_url "$auth_database_url")
-REDIS_URL=$(container_redis_url "$auth_redis_url")
-DB_SCHEMA=schema_auth
-GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
-EOF
-
-  cat > "$runtime_dir/collab.${slot}.env" <<EOF
-DATABASE_URL=$(container_db_url "$collab_database_url")
-REDIS_URL=$(container_redis_url "$collab_redis_url")
-DB_SCHEMA=schema_collab
-GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
-AUTH_EVENTS_STREAM_KEY=auth:events
-AUTH_EVENTS_CONSUMER_GROUP=collab-auth-consumers
-AUTH_EVENTS_MAX_RETRIES=3
-AUTH_EVENTS_PENDING_IDLE_MS=30000
-COLLAB_EVENTS_DLQ_STREAM_KEY=collab:events:dlq
-MEDIA_COMMANDS_STREAM_KEY=media:commands
-MEDIA_RESPONSES_STREAM_KEY=media:responses
-MEDIA_RESPONSES_CONSUMER_GROUP=collab-media-response-consumers
-MEDIA_COMMAND_TIMEOUT_MS=8000
-JWKS_URI=http://auth:3000/.well-known/jwks.json
-EOF
-
-  cat > "$runtime_dir/media.${slot}.env" <<EOF
-DATABASE_URL=$(container_db_url "$media_database_url")
-REDIS_URL=$(container_redis_url "$media_redis_url")
-DB_SCHEMA=schema_media
-GATEWAY_TRUST_SECRET=${GATEWAY_TRUST_SECRET}
-CLAMAV_HOST=clamav-scanner
-CLAMAV_PORT=3310
-MEDIA_COMMANDS_STREAM_KEY=media:commands
-MEDIA_RESPONSES_STREAM_KEY=media:responses
-MEDIA_COMMANDS_CONSUMER_GROUP=media-command-consumers
-EOF
+  for sName in $services_to_env; do
+    sDir="$(repo_path "crm-${sName}")"
+    env_prod="$sDir/.env.production"
+    if [[ ! -f "$env_prod" ]]; then
+      if [[ -f "$sDir/.env" ]]; then
+        env_prod="$sDir/.env"
+      else
+        env_prod="$sDir/.env.example"
+      fi
+    fi
+    
+    dest_env="$runtime_dir/${sName}.${slot}.env"
+    echo "Generating $dest_env from $env_prod..."
+    
+    db_url="$(grep '^DATABASE_URL=' "$env_prod" | head -n 1 | cut -d= -f2- || echo "")"
+    redis_url="$(grep '^REDIS_URL=' "$env_prod" | head -n 1 | cut -d= -f2- || echo "")"
+    
+    semver="$(node -p "require('$sDir/package.json').version" 2>/dev/null || echo "1.0.0")"
+    
+    # Copy the whole env file first to retain all microservice-specific env keys
+    cp "$env_prod" "$dest_env"
+    
+    # Append the slot-specific overrides at the end
+    {
+      echo ""
+      echo "# --- Slot Overrides ---"
+      if [[ -n "$db_url" ]]; then
+        echo "DATABASE_URL=$(container_db_url "$db_url")"
+      fi
+      if [[ -n "$redis_url" ]]; then
+        echo "REDIS_URL=$(container_redis_url "$redis_url")"
+      fi
+      echo "TRUST_GATEWAY_JWT_HEADERS=false"
+      echo "SERVICE_VERSION=${semver}"
+    } >> "$dest_env"
+  done
 }
 
 start_shared_platform() {
@@ -387,7 +452,6 @@ build_gateway_for_slot() {
     KRAKEND_MEDIA_HOST="${KRAKEND_MEDIA_HOST}" \
     KRAKEND_ENDPOINTS_SOURCE="${KRAKEND_ENDPOINTS_SOURCE:-file}" \
     KRAKEND_PORT="8080" \
-    GATEWAY_TRUST_SECRET="${GATEWAY_TRUST_SECRET}" \
     pnpm gateway:build --output "$runtime_dir/krakend.${slot}.json"
 }
 
@@ -398,10 +462,33 @@ start_slot_web() {
   gateway_port="$(slot_gateway_port "$slot")"
   frontend_port="$(slot_frontend_port "$slot")"
 
-  APP_SLOT="$slot" \
-  GATEWAY_SLOT_HOST_PORT="$gateway_port" \
-  FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-  docker compose -p "$project" -f "$slot_compose" up -d --build auth media collab api-gateway frontend
+  if [[ "$component" == "full" ]]; then
+    APP_SLOT="$slot" \
+    GATEWAY_SLOT_HOST_PORT="$gateway_port" \
+    FRONTEND_SLOT_HOST_PORT="$frontend_port" \
+    docker compose -p "$project" -f "$slot_compose" up -d --build auth media collab api-gateway frontend
+  else
+    local build_args=""
+    case "$component" in
+      auth) build_args="auth" ;;
+      collab) build_args="collab" ;;
+      media) build_args="media" ;;
+      frontend) build_args="frontend" ;;
+    esac
+
+    if [[ -n "$build_args" ]]; then
+      APP_SLOT="$slot" \
+      GATEWAY_SLOT_HOST_PORT="$gateway_port" \
+      FRONTEND_SLOT_HOST_PORT="$frontend_port" \
+      docker compose -p "$project" -f "$slot_compose" up -d --build $build_args
+    fi
+
+    # Ensure all services in the slot are started (using current images/cache)
+    APP_SLOT="$slot" \
+    GATEWAY_SLOT_HOST_PORT="$gateway_port" \
+    FRONTEND_SLOT_HOST_PORT="$frontend_port" \
+    docker compose -p "$project" -f "$slot_compose" up -d auth media collab api-gateway frontend
+  fi
 
   wait_for_http_ok "slot-${slot}-frontend" "http://127.0.0.1:${frontend_port}/"
   wait_for_http_ok "slot-${slot}-gateway" "http://127.0.0.1:${gateway_port}/health"
@@ -460,58 +547,22 @@ rollback_if_needed() {
 
 trap rollback_if_needed ERR
 
-sync_repo "$stack_dir"
+# Define service directories dynamically and upper-cased names
+all_services="$(node -e '
+  const svcs = JSON.parse(require("fs").readFileSync("registry/services.json", "utf8"));
+  svcs.forEach(s => {
+    console.log(`${s.name}|crm-${s.name}`);
+  });
+')"
 
-auth_dir="$(repo_path crm-auth)"
-collab_dir="$(repo_path crm-collab)"
-media_dir="$(repo_path crm-media)"
-frontend_dir="$(repo_path crm-frontend)"
+for svc_info in $all_services; do
+  sName="$(echo "$svc_info" | cut -d'|' -f1)"
+  sDirName="$(echo "$svc_info" | cut -d'|' -f2)"
+  declare "${sName}_dir=$(repo_path "$sDirName")"
+done
 
-sync_repo "$auth_dir"
-sync_repo "$collab_dir"
-sync_repo "$media_dir"
-sync_repo "$frontend_dir"
-
-if [[ ! -f "$stack_dir/.env.production" ]]; then
-  echo "Missing environment file: $stack_dir/.env.production" >&2
-  exit 1
-fi
-
-set -a
-# shellcheck disable=SC1090
-source "$stack_dir/.env.production"
-set +a
-
-if [[ -z "${GATEWAY_TRUST_SECRET:-}" && -f "$collab_dir/.env.production" ]]; then
-  GATEWAY_TRUST_SECRET="$(grep '^GATEWAY_TRUST_SECRET=' "$collab_dir/.env.production" | head -n 1 | cut -d= -f2-)"
-fi
-
-if [[ -z "${GATEWAY_TRUST_SECRET:-}" && -f "$media_dir/.env.production" ]]; then
-  GATEWAY_TRUST_SECRET="$(grep '^GATEWAY_TRUST_SECRET=' "$media_dir/.env.production" | head -n 1 | cut -d= -f2-)"
-fi
-
-if [[ -z "${GATEWAY_TRUST_SECRET:-}" ]]; then
-  echo "Missing GATEWAY_TRUST_SECRET in stack or service environments" >&2
-  exit 1
-fi
-
-KRAKEND_AUTH_HOST="${KRAKEND_AUTH_HOST:-http://auth:3000}"
-KRAKEND_COLLAB_HOST="${KRAKEND_COLLAB_HOST:-http://collab:3001}"
-KRAKEND_MEDIA_HOST="${KRAKEND_MEDIA_HOST:-http://media:3002}"
-
-if [[ -z "${CSP_CONNECT_SRC_EXTRA:-}" || -z "${CSP_IMG_SRC_EXTRA:-}" ]]; then
-  oci_region="$(grep '^OCI_REGION=' "$media_dir/.env.production" 2>/dev/null | head -n 1 | cut -d= -f2-)"
-  if [[ -n "$oci_region" ]]; then
-    oci_origin="https://objectstorage.${oci_region}.oraclecloud.com"
-    if [[ -z "${CSP_CONNECT_SRC_EXTRA:-}" ]]; then
-      CSP_CONNECT_SRC_EXTRA="$oci_origin"
-    fi
-    if [[ -z "${CSP_IMG_SRC_EXTRA:-}" ]]; then
-      CSP_IMG_SRC_EXTRA="$oci_origin"
-    fi
-  fi
-fi
-
+# Resolve active and target slots
+previous_slot=""
 if [[ -f "$active_slot_file" ]]; then
   previous_slot="$(tr -d '[:space:]' < "$active_slot_file")"
 fi
@@ -538,6 +589,35 @@ else
   target_slot="blue"
 fi
 
+# Resolve the requested version for the active component being deployed
+requested_version=""
+if [[ "$component" == "infra" ]]; then
+  requested_version="${DEPLOY_VERSION_infra:-${DEPLOY_VERSION:-}}"
+elif [[ "$component" == "full" ]]; then
+  requested_version="${DEPLOY_VERSION:-}"
+else
+  env_var_name="DEPLOY_VERSION_$(echo "$component" | tr '[:lower:]' '[:upper:]')"
+  requested_version="${!env_var_name:-${DEPLOY_VERSION:-}}"
+fi
+
+# Sync and resolve all services to their target versions dynamically
+echo "Resolving component versions for target slot: $target_slot"
+infra_version="$(git -C "$stack_dir" rev-parse HEAD)"
+
+for svc_info in $all_services; do
+  sName="$(echo "$svc_info" | cut -d'|' -f1)"
+  sDirVar="${sName}_dir"
+  sDir="${!sDirVar}"
+  
+  if [[ "$component" == "$sName" || "$component" == "full" ]]; then
+    target_version="$(sync_and_resolve_component "$sName" "$sDir" "$requested_version")"
+  else
+    target_version="$(sync_and_resolve_component "$sName" "$sDir" "")"
+  fi
+  
+  declare "${sName}_version=${target_version}"
+done
+
 write_runtime_env_files blue
 write_runtime_env_files green
 build_gateway_for_slot "$target_slot"
@@ -558,17 +638,41 @@ fi
 start_shared_platform
 wait_for_postgres
 
-run_in_repo "$auth_dir" pnpm install --frozen-lockfile
-run_in_repo "$collab_dir" pnpm install --frozen-lockfile
-run_in_repo "$media_dir" pnpm install --frozen-lockfile
+db_pass="${POSTGRES_PASSWORD:-rootpassword}"
+superuser_url=""
+db_port="${POSTGRES_HOST_PORT:-5432}"
+db_user="${POSTGRES_USER:-root}"
+superuser_url="postgresql://${db_user}:${db_pass}@127.0.0.1:${db_port}/${POSTGRES_DB:-crm_database}"
 
-auth_database_url="$(grep '^DATABASE_URL=' "$auth_dir/.env.production" | cut -d= -f2-)"
-collab_database_url="$(grep '^DATABASE_URL=' "$collab_dir/.env.production" | cut -d= -f2-)"
-media_database_url="$(grep '^DATABASE_URL=' "$media_dir/.env.production" | cut -d= -f2-)"
+# Get database services from registry to run migrations/bootstraps dynamically
+db_services="$(node -e '
+  const svcs = JSON.parse(require("fs").readFileSync("registry/services.json", "utf8"));
+  const dbSvcs = svcs.filter(s => s.schema && s.dbMigrateScript);
+  dbSvcs.forEach(s => {
+    console.log(`${s.name}|crm-${s.name}|${s.schema}|${s.dbInitScript}|${s.dbMigrateScript}`);
+  });
+')"
 
-with_dotenv "$auth_dir" "$auth_dir/.env.production" env DATABASE_URL="$(host_db_url "$auth_database_url")" pnpm db:push
-with_dotenv "$collab_dir" "$collab_dir/.env.production" env DATABASE_URL="$(host_db_url "$collab_database_url")" pnpm db:push
-with_dotenv "$media_dir" "$media_dir/.env.production" env DATABASE_URL="$(host_db_url "$media_database_url")" pnpm db:push
+for svc_info in $db_services; do
+  sName="$(echo "$svc_info" | cut -d'|' -f1)"
+  sDirName="$(echo "$svc_info" | cut -d'|' -f2)"
+  sSchema="$(echo "$svc_info" | cut -d'|' -f3)"
+  sInit="$(echo "$svc_info" | cut -d'|' -f4)"
+  sMigrate="$(echo "$svc_info" | cut -d'|' -f5)"
+  
+  sDir="$(repo_path "$sDirName")"
+  
+  if [[ "$component" == "$sName" || "$component" == "full" ]]; then
+    echo "Running migrations for $sName in $sDir..."
+    run_in_repo "$sDir" pnpm install --frozen-lockfile
+    s_db_url="$(grep '^DATABASE_URL=' "$sDir/.env.production" | cut -d= -f2- || echo "")"
+    if [[ -z "$s_db_url" ]]; then
+      s_db_url="$(grep '^DATABASE_URL=' "$sDir/.env.example" | cut -d= -f2- || echo "")"
+    fi
+    with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" pnpm "$sInit"
+    with_dotenv "$sDir" "$sDir/.env.production" env DATABASE_URL="$(host_db_url "$s_db_url")" pnpm "$sMigrate"
+  fi
+done
 
 start_slot_web "$target_slot"
 activate_edge_slot "$target_slot"
@@ -576,6 +680,16 @@ cutover_completed="true"
 
 wait_for_http_ok "public-frontend" "http://127.0.0.1:${public_port}/"
 wait_for_http_ok "public-api" "http://127.0.0.1:${public_port}/api/health"
+
+for svc_info in $db_services; do
+  sName="$(echo "$svc_info" | cut -d'|' -f1)"
+  sSchema="$(echo "$svc_info" | cut -d'|' -f3)"
+  sVerVar="${sName}_version"
+  
+  if [[ "$component" == "$sName" || "$component" == "full" ]]; then
+    verify_schema_version "$sName" "$sSchema" "${!sVerVar}"
+  fi
+done
 
 if [[ -n "$previous_slot" ]]; then
   stop_slot_workers "$previous_slot"
@@ -585,6 +699,20 @@ fi
 start_slot_workers "$target_slot"
 
 printf '%s\n' "$target_slot" > "$active_slot_file"
+
+{
+  echo "infra=${infra_version}"
+  for svc_info in $all_services; do
+    sName="$(echo "$svc_info" | cut -d'|' -f1)"
+    sDirVar="${sName}_dir"
+    sVerVar="${sName}_version"
+    sDir="${!sDirVar}"
+    sVer="${!sVerVar}"
+    
+    sSemver="$(node -p "require('$sDir/package.json').version" 2>/dev/null || echo "1.0.0")"
+    echo "${sName}=${sSemver}@${sVer}"
+  done
+} > "$(version_file "$target_slot")"
 
 if [[ -n "$previous_slot" ]]; then
   destroy_slot "$previous_slot"

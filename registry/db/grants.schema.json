@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["service", "role", "passwordEnvVar", "schema", "grants"],
+    "additionalProperties": false,
+    "properties": {
+      "service":        { "type": "string" },
+      "role":           { "type": "string" },
+      "passwordEnvVar": { "type": "string" },
+      "schema":         { "type": "string" },
+      "grants": {
+        "type": "object",
+        "required": ["schema", "tables", "sequences", "functions"],
+        "additionalProperties": false,
+        "properties": {
+          "schema": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["USAGE", "CREATE"] }
+          },
+          "tables": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"] }
+          },
+          "sequences": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["USAGE", "SELECT", "UPDATE"] }
+          },
+          "functions": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["EXECUTE"] }
+          }
+        }
+      }
+    }
+  }
+}

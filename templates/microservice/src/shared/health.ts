@@ -1,7 +1,7 @@
 import type { Pool } from "pg";
 import type Redis from "ioredis";
 
-// ── Tipos ───────────────────────────────────────────────────────────────────
+// ── Types ───────────────────────────────────────────────────────────────────
 export type DependencyStatus = "ok" | "down" | "timeout";
 
 export type HealthDependency = {
@@ -14,6 +14,7 @@ export type HealthDependency = {
 export type HealthResponse = {
   status: "ok" | "degraded" | "down";
   service: string;
+  version: string;
   uptime: number;
   timestamp: string;
   dependencies: HealthDependency[];
@@ -36,7 +37,7 @@ export async function checkPostgres(pool: Pool): Promise<HealthDependency> {
   }
 }
 
-export async function checkRedis(redis: Redis | undefined): Promise<HealthDependency> {
+export async function checkRedis(redis: Redis | undefined | null): Promise<HealthDependency> {
   if (!redis) return { name: "redis", status: "ok" };
   const start = Date.now();
   try {
@@ -58,6 +59,7 @@ export async function checkRedis(redis: Redis | undefined): Promise<HealthDepend
 // ── Aggregator ──────────────────────────────────────────────────────────────
 export function buildHealthResponse(
   service: string,
+  version: string,
   startTime: number,
   dependencies: HealthDependency[]
 ): { body: HealthResponse; status: 200 | 503 } {
@@ -69,6 +71,7 @@ export function buildHealthResponse(
     body: {
       status,
       service,
+      version,
       uptime: Math.floor((Date.now() - startTime) / 1000),
       timestamp: new Date().toISOString(),
       dependencies,

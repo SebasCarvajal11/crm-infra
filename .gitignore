@@ -35,6 +35,7 @@ out/
 *.pem
 *.key
 cookies.jar
+security/sops/keys.txt
 
 # Logs
 logs/
@@ -73,5 +74,7 @@ test-results/
 gateway/output/
 deploy/runtime/*
 !deploy/runtime/.gitkeep
+krakend.json
 krakend.blue.json
 krakend.green.json
+api-portal/

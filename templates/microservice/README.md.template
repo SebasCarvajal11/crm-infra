@@ -1,6 +1,6 @@
 # {{SERVICE_TITLE}}
 
-`crm-{{SERVICE_NAME}}` is the {{SERVICE_NAME}} service for CIMA CRM.
+`crm-{{SERVICE_NAME}}` — {{SERVICE_TITLE}} microservice for CIMA CRM.
 
 ## Scope
 
@@ -13,64 +13,53 @@
 # Install dependencies
 pnpm install
 
-# Start development server
-pnpm dev
+# Bootstrap DB role and schema (requires DB_SUPERUSER_URL)
+pnpm db:bootstrap
 
-# Push database schema
+# Push schema
 pnpm db:push
 
-# Open Drizzle Studio
-pnpm db:studio
+# Start development server with hot-reload
+pnpm dev
 ```
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `postgres://{{DB_USER}}:{{DB_PASSWORD}}@localhost:15432/crm_database` | PostgreSQL connection string |
-| `DB_SCHEMA` | `{{SCHEMA_NAME}}` | PostgreSQL schema name |
+| `DB_URL` | — | PostgreSQL connection string (service role) |
+| `DB_SCHEMA` | `schema_{{SERVICE_NAME}}` | PostgreSQL schema |
+| `DB_ROLE` | `{{SERVICE_NAME}}_user` | PostgreSQL role |
+| `DB_ROLE_PASSWORD` | — | PostgreSQL role password |
+| `DB_SUPERUSER_URL` | — | Superuser URL (bootstrap only) |
 | `PORT` | `{{SERVICE_PORT}}` | HTTP listen port |
 | `NODE_ENV` | `development` | Environment mode |
-| `REDIS_URL` | `redis://localhost:16379` | Redis connection string |
-| `GATEWAY_TRUST_SECRET` | (required) | Gateway trust verification secret |
-
-## API Documentation
-
-- OpenAPI spec: `GET /openapi.yaml`
-- Swagger UI: `GET /docs`
-- Via gateway: `http://localhost:18080/docs/{{SERVICE_NAME}}/openapi.yaml`
+| `REDIS_URL` | — | Redis connection string (optional) |
+| `SERVICE_VERSION` | `1.0.0` | Service version tag |
 
 ## Scripts
 
 | Script | Description |
 |--------|-------------|
-| `pnpm dev` | Start development server with hot-reload |
+| `pnpm dev` | Start with hot-reload |
 | `pnpm build` | Compile TypeScript |
 | `pnpm start` | Start production server |
+| `pnpm db:bootstrap` | Provision role and schema (idempotent, superuser) |
+| `pnpm db:push` | Push Drizzle schema |
 | `pnpm db:generate` | Generate Drizzle migrations |
-| `pnpm db:push` | Push schema to database |
-| `pnpm db:migrate` | Run pending migrations |
-| `pnpm db:studio` | Open Drizzle Studio GUI |
+| `pnpm db:migrate` | Run migrations |
+| `pnpm gateway:validate` | Validate `gateway/gateway.manifest.json` |
+| `pnpm openapi:check` | Validate `openapi/openapi.yaml` |
+| `pnpm test:unit` | Run unit tests |
 
-## Architecture
+## API Contract
 
-```
-src/
-├── app.ts              # Hono app factory
-├── server.ts           # HTTP server bootstrap
-├── config/
-│   └── env.ts          # Environment validation
-├── db/
-│   ├── connection.ts   # PostgreSQL pool + Drizzle
-│   ├── pg-config.ts    # Connection config
-│   └── schema.ts       # Database schema
-├── modules/
-│   └── {domain}/       # Feature modules
-├── shared/
-│   ├── logger.ts       # Pino structured logger
-│   ├── health.ts       # Health check utilities
-│   ├── redis.ts        # Redis connection
-│   └── middlewares/    # Hono middlewares
-└── openapi/
-    └── openapi.routes.ts
-```
+- Gateway manifest: `gateway/gateway.manifest.json`
+- OpenAPI spec: `openapi/openapi.yaml`
+- Health endpoint: `GET /health`
+
+## Adding New Services Using This Template
+
+See `crm-infra/templates/microservice/setup.sh` for the scaffolding script.
+After scaffolding, register the service in `crm-infra` by adding it to
+`docker-compose.yml`, the gateway builder, and `setup/db.ps1`.

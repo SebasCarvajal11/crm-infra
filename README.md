@@ -111,7 +111,7 @@ pnpm worker:quarantine-scan
 Useful commands:
 
 - `pnpm contracts:build`
-- `GATEWAY_TRUST_SECRET=... KRAKEND_AUTH_HOST=... KRAKEND_COLLAB_HOST=... KRAKEND_MEDIA_HOST=... pnpm gateway:build`
+- `KRAKEND_AUTH_HOST=... KRAKEND_COLLAB_HOST=... KRAKEND_MEDIA_HOST=... pnpm gateway:build`
 - `docker compose --env-file .env.docker config --quiet`
 - `docker compose --env-file .env.docker up --build`
 - `pnpm smoke:multirepo`
@@ -133,7 +133,6 @@ Useful local overrides:
 
 - `COMPOSE_PROJECT_NAME`
 - `GATEWAY_HOST_PORT`
-- `GATEWAY_TRUST_SECRET`
 - `KRAKEND_AUTH_HOST`
 - `KRAKEND_COLLAB_HOST`
 - `KRAKEND_MEDIA_HOST`
@@ -205,121 +204,74 @@ This is the baseline expected for future modules: independent CI in the module r
 - Slot-specific KrakenD runtime files are generated under `deploy/runtime/krakend.<slot>.json`.
 - Consolidated `openapi.yaml` generation is optional and depends on the presence of the sibling service repos.
 
-## Integración de Nuevo Servicio
+## Secret Management
 
-Para agregar un nuevo microservicio al ecosistema CIMA CRM, seguir estos pasos:
+Production secrets are encrypted with [sops](https://github.com/getsops/sops) + [age](https://github.com/FiloSottile/age). The encrypted files live in `secrets/` and are committed to the repo.
 
-### Paso 1: Crear servicio desde template
+**Key files:**
+- `security/sops/.sops.yaml` — sops rules (public key reference)
+- `security/gitleaks.toml` — allowlist for secret scanning in CI
+- `security/rotate-jwt.sh` — JWT key rotation script (90-day cadence)
+- `secrets/docker.env.enc` — encrypted production env vars
 
-```bash
-cd crm-infra
-bash templates/microservice/setup.sh <service-name> <port> [db-password]
-```
+**Required GitHub Secrets:**
+- `SOPS_AGE_KEY` — age private key for sops decryption
+- `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_SSH_USER`, `DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_BASE_DIR` — deployment SSH credentials
 
-Esto crea `crm-<service-name>/` con toda la estructura base configurada.
+**CI includes:**
+- `gitleaks` secret scanning on every push/PR (via `reusable-ci.yml`)
+- `Renovate` for automated dependency updates (weekly, auto-merge minor/patch)
 
-### Paso 2: Agregar esquema y usuario en PostgreSQL
+For detailed setup instructions, see [ONBOARDING.md §7 Seguridad Operativa](./ONBOARDING.md#7-seguridad-operativa).
 
-Editar `scripts/00-init-service-schemas.sh` y agregar:
+### Integración de Nuevo Servicio
 
-```bash
-create_role_if_missing "<service>_user" "${<SERVICE>_DB_PASSWORD:-<password>}"
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    CREATE SCHEMA IF NOT EXISTS schema_<service>;
-    GRANT ALL PRIVILEGES ON SCHEMA schema_<service> TO <service>_user;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA schema_<service>
-        GRANT ALL ON TABLES TO <service>_user;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA schema_<service>
-        GRANT ALL ON SEQUENCES TO <service>_user;
-    REVOKE ALL ON SCHEMA schema_<service> FROM public;
-EOSQL
-```
+Para agregar un nuevo microservicio al ecosistema CIMA CRM de manera automática:
 
-### Paso 3: Agregar al docker-compose
+### Paso 1: Crear servicio desde plantilla
 
-Agregar el servicio a `docker-compose.yml`:
-
-```yaml
-crm-<service>:
-  build:
-    context: ../crm-<service>
-    dockerfile: Dockerfile
-  container_name: cima-<service>
-  restart: unless-stopped
-  depends_on:
-    postgres_db:
-      condition: service_healthy
-    redis:
-      condition: service_healthy
-  environment:
-    DATABASE_URL: postgres://<service>_user:<password>@postgres_db:5432/crm_database
-    DB_SCHEMA: schema_<service>
-    PORT: "<port>"
-    REDIS_URL: redis://redis:6379
-    GATEWAY_TRUST_SECRET: ${GATEWAY_TRUST_SECRET}
-  healthcheck:
-    test: ["CMD", "node", "-e", "fetch('http://localhost:<port>/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-    interval: 20s
-    timeout: 10s
-    retries: 5
-    start_period: 40s
-  networks:
-    - cima-net
-```
-
-### Paso 4: Agregar endpoints explicitos al gateway
-
-Agregar rutas concretas en `gateway/endpoints/<service>.json`. KrakenD CE no soporta
-un proxy catch-all por prefijo con `**` ni `method: "*"`, así que cada contrato público
-debe declararse por método y ruta:
-
-```json
-{
-  "endpoints": [
-    {
-      "endpoint": "/api/v1/<service>/resources/{resourceId}",
-      "method": "GET",
-      "backend_url": "/api/v1/<service>/resources/{resourceId}"
-    }
-  ]
-}
-```
-
-### Paso 5: Regenerar gateway
+Ejecuta el script generador desde la raíz de `crm-infra`:
 
 ```bash
-cd crm-infra
-node gateway/build-krakend.mjs
+node scripts/create-microservice.mjs --name=<nombre> --port=<puerto>
 ```
 
-### Paso 6: Definir eventos (si aplica)
+**Ejemplo**:
+```bash
+node scripts/create-microservice.mjs --name=billing --port=3005
+```
 
-Si el servicio produce eventos que otros necesitan:
+Este comando realiza automáticamente:
+1. Copia de la plantilla oficial a `../crm-<nombre>`.
+2. Reemplazo de placeholders en archivos de configuración y código.
+3. Registro del servicio en `registry/services.json`.
+4. Regeneración automática de configuraciones de Docker Compose y KrakenD API Gateway.
 
-1. Definir tipos de eventos en `src/modules/<domain>/events/`
-2. Publicar a Redis Stream con `XADD`
-3. Documentar en `AGENTS.md`
+### Paso 2: Configurar entorno local y DB
 
-Si el servicio consume eventos de otros:
-
-1. Crear consumer group en `src/workers/`
-2. Suscribirse con `XREADGROUP`
-3. Documentar en `AGENTS.md`
-
-### Paso 7: Agregar al frontend (si aplica)
-
-Si el frontend necesita consumir la API del nuevo servicio:
-
-1. Agregar rutas a `crm-frontend/src/shared/lib/gateway-routes.ts`
-2. Crear feature module en `crm-frontend/src/features/<service>/`
-
-### Paso 8: Desplegar
+Ejecuta los siguientes comandos para configurar el entorno de desarrollo local:
 
 ```bash
-# Local
-docker compose up -d --build
+pnpm setup:env
+pnpm setup:db
+```
 
-# Producción
-# Agregar a docker-compose.slot.prod.yml
-# Configurar .env.production
+### Paso 3: Iniciar desarrollo
+
+Levanta el ecosistema base con Docker Compose y levanta tu nuevo servicio en modo desarrollo:
+
+```bash
+# Levantar dependencias base (Postgres, Redis, ClamAV, Gateway)
+docker compose up -d
+
+# Correr microservicio
+pnpm --dir ../crm-<nombre> dev
+```
+
+### Paso 4: Desplegar a producción
+
+El deployer dinámico se integra con el registro automáticamente:
+
+```bash
+./deploy/remote/deploy-component.sh <nombre>
 ```

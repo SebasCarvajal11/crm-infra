@@ -1,0 +1,22 @@
+name: CI — crm-{{SERVICE_NAME}}
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-{{SERVICE_NAME}}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    uses: SebasCarvajal11/crm-infra/.github/workflows/reusable-ci.yml@main
+    with:
+      component: {{SERVICE_NAME}}
+      runs_db: true
+      runs_redis: true
+      db_schema: schema_{{SERVICE_NAME}}
+      test_command: pnpm test:unit
+    secrets: inherit

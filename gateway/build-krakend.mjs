@@ -23,10 +23,17 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUTPUT = resolve(__dirname, "..", "krakend.json");
 
-const GATEWAY_TRUST_SECRET = requiredEnv("GATEWAY_TRUST_SECRET");
-const AUTH_HOST = requiredUrlEnv("KRAKEND_AUTH_HOST");
-const COLLAB_HOST = requiredUrlEnv("KRAKEND_COLLAB_HOST");
-const MEDIA_HOST = requiredUrlEnv("KRAKEND_MEDIA_HOST");
+const servicesRegistryPath = resolve(__dirname, "..", "registry", "services.json");
+const servicesRegistry = JSON.parse(readFileSync(servicesRegistryPath, "utf-8"));
+
+const hosts = {};
+for (const s of servicesRegistry) {
+  const envName = `KRAKEND_${s.name.toUpperCase()}_HOST`;
+  const defaultUrl = `http://crm-${s.name}:${s.port}`;
+  hosts[s.name] = optionalUrlEnv(envName, defaultUrl);
+}
+
+const AUTH_HOST = hosts["auth"] || "http://crm-auth:3000";
 const GATEWAY_PORT = optionalPortEnv("KRAKEND_PORT", 8080);
 const ENDPOINTS_SOURCE = optionalEnumEnv("KRAKEND_ENDPOINTS_SOURCE", ["auto", "http", "file"], "auto");
 const ENDPOINTS_HTTP_TIMEOUT_MS = optionalPositiveIntegerEnv("KRAKEND_ENDPOINTS_HTTP_TIMEOUT_MS", 5000);
@@ -39,8 +46,8 @@ function requiredEnv(name) {
   return value;
 }
 
-function requiredUrlEnv(name) {
-  const value = requiredEnv(name).replace(/\/+$/, "");
+function optionalUrlEnv(name, fallback) {
+  const value = (process.env[name]?.trim() || fallback).replace(/\/+$/, "");
   try {
     const url = new URL(value);
     if (!["http:", "https:"].includes(url.protocol)) {
@@ -85,16 +92,8 @@ function optionalEnumEnv(name, allowed, fallback) {
 
 // â”€â”€ Templates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-function gatewayTrustExtra() {
-  return {
-    "modifier/martian": {
-      "header.Modifier": {
-        scope: ["request"],
-        name: "X-Gateway-Trust",
-        value: GATEWAY_TRUST_SECRET,
-      },
-    },
-  };
+function extraBackendOpts() {
+  return {};
 }
 
 function jwtValidator() {
@@ -132,6 +131,17 @@ const CB_DEFAULTS = {
   log_status_change: true,
 };
 
+function getCircuitBreakerConfig(serviceName) {
+  const s = servicesRegistry.find(x => x.name === serviceName);
+  if (s && s.circuitBreaker) {
+    return {
+      ...CB_DEFAULTS,
+      ...s.circuitBreaker,
+    };
+  }
+  return CB_DEFAULTS;
+}
+
 // â”€â”€ Builders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function buildBackend(host, urlPattern, def = {}) {
@@ -139,23 +149,18 @@ function buildBackend(host, urlPattern, def = {}) {
     host: [host],
     url_pattern: urlPattern,
     encoding: "no-op",
-    extra_config: gatewayTrustExtra(),
+    extra_config: extraBackendOpts(),
   };
 
-  if (def.allow) {
-    backend.allow = def.allow;
-  }
-  if (def.deny) {
-    backend.deny = def.deny;
-  }
   if (def.group) {
     backend.group = def.group;
   }
 
   // Circuit breaker
   const cbName = `cb-${urlPattern.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 50)}`;
+  const cbConfig = getCircuitBreakerConfig(def.serviceName);
   backend.extra_config["qos/circuit-breaker"] = {
-    ...CB_DEFAULTS,
+    ...cbConfig,
     name: def.cb_name || cbName,
   };
 
@@ -179,17 +184,12 @@ function buildBackend(host, urlPattern, def = {}) {
 }
 
 function resolveServiceHost(service) {
-  switch (service) {
-    case undefined:
-    case "auth":
-      return AUTH_HOST;
-    case "collab":
-      return COLLAB_HOST;
-    case "media":
-      return MEDIA_HOST;
-    default:
-      throw new Error(`Host de endpoint publico no soportado: ${service}`);
+  const name = service || "auth";
+  const host = hosts[name];
+  if (!host) {
+    throw new Error(`Host de endpoint publico no soportado: ${name}`);
   }
+  return host;
 }
 
 function parseTtl(ttl) {
@@ -212,7 +212,7 @@ function buildPublicEndpoint(def) {
     }
   }
 
-  const backend = buildBackend(resolveServiceHost(def.host), def.backend_url || def.endpoint);
+  const backend = buildBackend(resolveServiceHost(def.host), def.backend_url || def.endpoint, { serviceName: def.host });
 
   const endpoint = {
     endpoint: def.endpoint,
@@ -240,12 +240,11 @@ function buildAuthEndpoint(def, groupHost) {
     }
   }
 
-  const backendDef = {};
-  if (def.allow) backendDef.allow = def.allow;
-  if (def.deny) backendDef.deny = def.deny;
+  const serviceName = def.host || groupHost;
+  const backendDef = { serviceName };
   if (def.cache_ttl) backendDef.cache_ttl = def.cache_ttl;
 
-  const host = def.host || groupHost;
+  const host = resolveServiceHost(serviceName);
 
   const endpoint = {
     endpoint: def.endpoint,
@@ -263,44 +262,7 @@ function buildAuthEndpoint(def, groupHost) {
   return endpoint;
 }
 
-function buildBffEndpoint(def) {
-  const headers = BODY_METHODS.has(def.method)
-    ? [...AUTH_HEADERS_WITH_BODY]
-    : [...AUTH_HEADERS_BASE];
 
-  const backends = def.backends.map((b) => {
-    const backendDef = { group: b.group };
-    if (b.allow) backendDef.allow = b.allow;
-    if (b.deny) backendDef.deny = b.deny;
-    if (b.cache_ttl) backendDef.cache_ttl = b.cache_ttl;
-    backendDef.cb_name = `cb-bff-${b.url_pattern.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 40)}`;
-
-    const host = b.host || (b.url_pattern.startsWith("/collab/") ? COLLAB_HOST : AUTH_HOST);
-    const backend = buildBackend(host, b.url_pattern, backendDef);
-    if (b.encoding) {
-      backend.encoding = b.encoding;
-    } else {
-      backend.encoding = "json";
-    }
-    return backend;
-  });
-
-  const endpoint = {
-    endpoint: def.endpoint,
-    method: def.method || "GET",
-    timeout: def.timeout || "3s",
-    output_encoding: "json",
-    extra_config: jwtValidator(),
-    input_headers: headers,
-    backend: backends,
-  };
-
-  if (def.input_query_strings) {
-    endpoint.input_query_strings = def.input_query_strings;
-  }
-
-  return endpoint;
-}
 
 // ── Loader ───────────────────────────────────────────────────────────────────
 
@@ -308,7 +270,7 @@ const AUTH_HEADERS_WITH_BODY = ["Content-Type", ...AUTH_HEADERS_BASE];
 
 function serviceEndpointsUrl(serviceName, defaultHost) {
   const envName = `KRAKEND_${serviceName.toUpperCase()}_ENDPOINTS_URL`;
-  return (process.env[envName]?.trim() || `${defaultHost}/_gateway/endpoints.json`).replace(/\/+$/, "");
+  return (process.env[envName]?.trim() || `${defaultHost}/_gateway/gateway.manifest.json`).replace(/\/+$/, "");
 }
 
 async function fetchJsonWithTimeout(url) {
@@ -317,7 +279,9 @@ async function fetchJsonWithTimeout(url) {
 
   try {
     const response = await fetch(url, {
-      headers: { Accept: "application/json" },
+      headers: { 
+        Accept: "application/json"
+      },
       signal: controller.signal,
     });
 
@@ -331,9 +295,9 @@ async function fetchJsonWithTimeout(url) {
   }
 }
 
-function loadServiceEndpointsFromFile(serviceName, defaultHost) {
-  const hostPath = resolve(__dirname, "..", "..", `crm-${serviceName}`, "gateway", "endpoints.json");
-  const dockerPath = resolve(__dirname, "..", `crm-${serviceName}`, "gateway", "endpoints.json");
+function loadServiceEndpointsFromFile(service, defaultHost) {
+  const hostPath = resolve(__dirname, "..", "..", service.manifestPath);
+  const dockerPath = resolve(__dirname, "..", service.manifestPath);
 
   let rawData;
   try {
@@ -342,99 +306,117 @@ function loadServiceEndpointsFromFile(serviceName, defaultHost) {
     try {
       rawData = readFileSync(dockerPath, "utf-8");
     } catch (err) {
-      throw new Error(`No se pudo leer endpoints.json para crm-${serviceName} en ${hostPath} ni en ${dockerPath}: ${err.message}`);
+      throw new Error(`No se pudo leer gateway.manifest.json para crm-${service.name} en ${hostPath} ni en ${dockerPath}: ${err.message}`);
     }
   }
 
   const data = JSON.parse(rawData);
   return {
-    host: data.host || defaultHost,
+    host: data.service || data.host || defaultHost,
     endpoints: data.endpoints || []
   };
 }
 
-async function loadServiceEndpoints(serviceName, defaultHost) {
+async function loadServiceEndpoints(service, defaultHost) {
   if (ENDPOINTS_SOURCE !== "file") {
-    const url = serviceEndpointsUrl(serviceName, defaultHost);
+    const url = serviceEndpointsUrl(service.name, defaultHost);
 
     try {
       const data = await fetchJsonWithTimeout(url);
       return {
-        host: data.host || defaultHost,
+        host: data.service || data.host || defaultHost,
         endpoints: data.endpoints || [],
       };
     } catch (err) {
       if (ENDPOINTS_SOURCE === "http") {
-        throw new Error(`No se pudo descargar endpoints.json de crm-${serviceName} desde ${url}: ${err.message}`);
+        throw new Error(`No se pudo descargar gateway.manifest.json de crm-${service.name} desde ${url}: ${err.message}`);
       }
-      console.warn(`No se pudo descargar endpoints.json de crm-${serviceName} desde ${url}. Se usara fallback por archivo: ${err.message}`);
+      console.warn(`No se pudo descargar gateway.manifest.json de crm-${service.name} desde ${url}. Se usara fallback por archivo: ${err.message}`);
     }
   }
 
-  return loadServiceEndpointsFromFile(serviceName, defaultHost);
-}
-
-function loadBffEndpoints() {
-  const bffPath = resolve(__dirname, "bff.json");
-  try {
-    const data = JSON.parse(readFileSync(bffPath, "utf-8"));
-    return data.endpoints || [];
-  } catch (err) {
-    throw new Error(`Error al cargar endpoints BFF: ${err.message}`);
-  }
+  return loadServiceEndpointsFromFile(service, defaultHost);
 }
 
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
+  const compareArg = process.argv.indexOf("--compare");
+  if (compareArg !== -1) {
+    const oldPath = process.argv[compareArg + 1];
+    const newPath = process.argv[compareArg + 2];
+    if (!oldPath || !newPath) {
+      console.error("Uso: node gateway/build-krakend.mjs --compare <oldManifestPath> <newManifestPath>");
+      process.exit(1);
+    }
+    compareManifests(oldPath, newPath);
+    return;
+  }
+
   const outputArg = process.argv.indexOf("--output");
   const outputPath =
     outputArg !== -1 ? resolve(process.argv[outputArg + 1]) : DEFAULT_OUTPUT;
-
-  const authData = await loadServiceEndpoints("auth", AUTH_HOST);
-  const collabData = await loadServiceEndpoints("collab", COLLAB_HOST);
-  const mediaData = await loadServiceEndpoints("media", MEDIA_HOST);
-  const bffEndpoints = loadBffEndpoints();
 
   let publicCount = 0;
   let authCount = 0;
   let collabCount = 0;
   let mediaCount = 0;
-  let bffCount = 0;
-  let withAllow = 0;
   let withCache = 0;
   let publicRateLimitCount = 0;
 
   const endpoints = [];
 
-  function processEndpoints(list, serviceHost, serviceName) {
-    for (const d of list) {
-      if (d.backends) {
-        endpoints.push(buildBffEndpoint(d));
-        bffCount++;
-      } else if (d.public === true) {
-        d.host = d.host || serviceName;
+  for (const s of servicesRegistry) {
+    if (!s.manifestPath) continue;
+    const sHost = hosts[s.name];
+    const sData = await loadServiceEndpoints(s, sHost);
+
+    for (const d of sData.endpoints) {
+      if (d.endpoint === "/health") {
+        continue;
+      }
+      if (d.public === true) {
+        d.host = d.host || s.name;
         endpoints.push(buildPublicEndpoint(d));
         publicCount++;
         if (d.rate_limit) {
           publicRateLimitCount++;
         }
       } else {
-        endpoints.push(buildAuthEndpoint(d, serviceHost));
-        if (serviceName === "auth") authCount++;
-        if (serviceName === "collab") collabCount++;
-        if (serviceName === "media") mediaCount++;
-        if (d.allow) withAllow++;
+        endpoints.push(buildAuthEndpoint(d, sData.host));
+        if (s.name === "auth") authCount++;
+        if (s.name === "collab") collabCount++;
+        if (s.name === "media") mediaCount++;
         if (d.cache_ttl) withCache++;
       }
     }
   }
 
-  processEndpoints(authData.endpoints, authData.host, "auth");
-  processEndpoints(collabData.endpoints, collabData.host, "collab");
-  processEndpoints(mediaData.endpoints, mediaData.host, "media");
-  processEndpoints(bffEndpoints, undefined, "bff");
+  // Inject aggregated health check endpoint dynamically
+  const healthBackends = servicesRegistry
+    .filter(s => s.manifestPath)
+    .map(s => ({
+      host: [hosts[s.name]],
+      url_pattern: "/health",
+      group: s.name,
+      extra_config: {
+        ...extraBackendOpts(),
+        "qos/circuit-breaker": {
+          ...getCircuitBreakerConfig(s.name),
+          name: `cb-health-${s.name}`
+        }
+      }
+    }));
+
+
+  endpoints.push({
+    endpoint: "/health",
+    method: "GET",
+    output_encoding: "json",
+    input_headers: [...PUBLIC_HEADERS_BASE],
+    backend: healthBackends
+  });
 
   const config = {
     $schema: "https://www.krakend.io/schema/v3.json",
@@ -454,6 +436,11 @@ async function main() {
         allow_credentials: true,
         max_age: "12h",
       },
+      "telemetry/metrics": {
+        "collection_time": "60s",
+        "listen_address": "0.0.0.0:8090",
+        "router_disabled": false
+      },
     },
     endpoints,
   };
@@ -461,15 +448,165 @@ async function main() {
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
 
-  const total = publicCount + authCount + collabCount + mediaCount + bffCount;
+  const total = publicCount + authCount + collabCount + mediaCount;
 
   console.log(`✓ krakend.json generado: ${outputPath}`);
-  console.log(`  Endpoints: ${total} (public:${publicCount} auth:${authCount} collab:${collabCount} media:${mediaCount} bff:${bffCount})`);
-  console.log(`  Response filtering (allow): ${withAllow} endpoints`);
+  console.log(`  Endpoints: ${total} (public:${publicCount} auth:${authCount} collab:${collabCount} media:${mediaCount})`);
+  // Response filtering has been moved to service layer
   console.log(`  Edge caching: ${withCache} endpoints`);
   console.log(`  Circuit breaker: ${total} backends (todos)`);
   console.log(`  Rate limiting: ${publicRateLimitCount} endpoints`);
 
+}
+
+function compareManifests(oldPath, newPath) {
+  let oldManifest, newManifest;
+  try {
+    oldManifest = JSON.parse(readFileSync(oldPath, "utf-8"));
+  } catch (err) {
+    console.error(`Error al leer el manifiesto antiguo en ${oldPath}: ${err.message}`);
+    process.exit(1);
+  }
+
+  try {
+    newManifest = JSON.parse(readFileSync(newPath, "utf-8"));
+  } catch (err) {
+    console.error(`Error al leer el nuevo manifiesto en ${newPath}: ${err.message}`);
+    process.exit(1);
+  }
+
+  const oldEndpoints = oldManifest.endpoints || [];
+  const newEndpoints = newManifest.endpoints || [];
+
+  const oldMap = new Map();
+  for (const ep of oldEndpoints) {
+    oldMap.set(`${ep.method} ${ep.endpoint}`, ep);
+  }
+
+  const newMap = new Map();
+  for (const ep of newEndpoints) {
+    newMap.set(`${ep.method} ${ep.endpoint}`, ep);
+  }
+
+  const added = [];
+  const removed = [];
+  const changed = [];
+  const breaking = [];
+
+  for (const [key, ep] of newMap.entries()) {
+    if (!oldMap.has(key)) {
+      added.push(ep);
+    } else {
+      const oldEp = oldMap.get(key);
+      const changes = getEndpointChanges(oldEp, ep);
+      if (changes.length > 0) {
+        changed.push({ endpoint: ep, changes });
+        const breakingChanges = getBreakingChanges(oldEp, ep, changes);
+        if (breakingChanges.length > 0) {
+          breaking.push({ endpoint: ep, breakingChanges });
+        }
+      }
+    }
+  }
+
+  for (const [key, ep] of oldMap.entries()) {
+    if (!newMap.has(key)) {
+      removed.push(ep);
+      breaking.push({ endpoint: ep, breakingChanges: [`El endpoint '${ep.method} ${ep.endpoint}' fue eliminado.`] });
+    }
+  }
+
+  console.log(`\n### Reporte de cambios de manifiesto para el servicio "${newManifest.service || oldManifest.service || "unknown"}"`);
+  console.log(`Versión antigua: ${oldManifest.version || "N/A"} -> Versión nueva: ${newManifest.version || "N/A"}\n`);
+
+  if (breaking.length > 0) {
+    console.error(`⚠️  **CAMBIOS INCOMPATIBLES DETECTADOS (BREAKING CHANGES)**:`);
+    for (const b of breaking) {
+      console.error(`- **${b.endpoint.method} ${b.endpoint.endpoint}**:`);
+      for (const msg of b.breakingChanges) {
+        console.error(`  - ❌ ${msg}`);
+      }
+    }
+    console.error("");
+  } else {
+    console.log(`✅ No se detectaron cambios incompatibles (breaking changes).\n`);
+  }
+
+  if (added.length > 0) {
+    console.log(`➕ **Endpoints añadidos**:`);
+    for (const ep of added) {
+      console.log(`- \`${ep.method} ${ep.endpoint}\` (Público: ${ep.public ? "Sí" : "No"})`);
+    }
+    console.log("");
+  }
+
+  if (removed.length > 0) {
+    console.log(`➖ **Endpoints eliminados**:`);
+    for (const ep of removed) {
+      console.log(`- \`${ep.method} ${ep.endpoint}\``);
+    }
+    console.log("");
+  }
+
+  if (changed.length > 0) {
+    console.log(`📝 **Endpoints modificados**:`);
+    for (const c of changed) {
+      const isBreakingOnly = breaking.some(b => b.endpoint === c.endpoint && b.breakingChanges.length === c.changes.length);
+      if (!isBreakingOnly) {
+        console.log(`- **${c.endpoint.method} ${c.endpoint.endpoint}**:`);
+        for (const msg of c.changes) {
+          // If this change message is a breaking change, skip it here since it's already shown in breaking section
+          const isBreakingMsg = breaking.some(b => b.endpoint === c.endpoint && b.breakingChanges.some(bm => bm.includes(msg.split(" ")[0])));
+          if (!isBreakingMsg) {
+            console.log(`  - ${msg}`);
+          }
+        }
+      }
+    }
+    console.log("");
+  }
+
+  if (breaking.length > 0) {
+    process.exit(1);
+  } else {
+    process.exit(0);
+  }
+}
+
+function getEndpointChanges(oldEp, newEp) {
+  const changes = [];
+
+  if (oldEp.backend_url !== newEp.backend_url) {
+    changes.push(`URL backend cambió de '${oldEp.backend_url}' a '${newEp.backend_url}'`);
+  }
+  if (oldEp.public !== newEp.public) {
+    changes.push(`Visibilidad pública cambió de '${oldEp.public}' a '${newEp.public}'`);
+  }
+  if (JSON.stringify(oldEp.rate_limit) !== JSON.stringify(newEp.rate_limit)) {
+    changes.push(`Configuración de rate limiting modificada.`);
+  }
+
+  // allow/deny diff ignored at gateway level as filtering is handled at service level
+
+  const oldQueries = oldEp.input_query_strings || [];
+  const newQueries = newEp.input_query_strings || [];
+  if (JSON.stringify(oldQueries) !== JSON.stringify(newQueries)) {
+    changes.push(`Query strings de entrada modificados.`);
+  }
+
+  return changes;
+}
+
+function getBreakingChanges(oldEp, newEp, changes) {
+  const breaking = [];
+
+  if (oldEp.public === true && newEp.public !== true) {
+    breaking.push("El endpoint pasó de ser público a requerir autenticación JWT.");
+  }
+
+  // allow/deny breaking changes ignored at gateway level as filtering is handled at service level
+
+  return breaking;
 }
 
 main().catch((err) => {

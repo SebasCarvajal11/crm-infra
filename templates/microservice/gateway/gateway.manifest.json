@@ -1,0 +1,12 @@
+{
+  "service": "{{SERVICE_NAME}}",
+  "version": "1",
+  "public_endpoints": [],
+  "authenticated_endpoints": [
+    {
+      "endpoint": "/{{SERVICE_NAME}}/example",
+      "method": "GET",
+      "backend_url": "/{{SERVICE_NAME}}/example"
+    }
+  ]
+}

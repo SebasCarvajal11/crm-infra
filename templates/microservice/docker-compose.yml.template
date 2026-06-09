@@ -1,0 +1,28 @@
+services:
+  crm-{{SERVICE_NAME}}:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      CONTAINER_MODE: server
+      DATABASE_URL: postgresql://{{SERVICE_NAME}}_user:${{{SERVICE_NAME_UPPER}}_DB_PASSWORD:-{{DB_PASSWORD}}}@postgres_db:5432/crm_database
+      DB_SCHEMA: schema_{{SERVICE_NAME}}
+      PORT: {{SERVICE_PORT}}
+      REDIS_URL: redis://redis:6379
+      TRUST_GATEWAY_JWT_HEADERS: "false"
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      shared_backplane:
+        aliases:
+          - {{SERVICE_NAME}}
+
+networks:
+  shared_backplane:
+    name: cima-crm-local-backplane

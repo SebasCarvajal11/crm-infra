@@ -1,5 +1,0 @@
-allowBuilds:
-  '@cima/contracts': false
-  bcrypt: true
-  esbuild: true
-  msgpackr-extract: true

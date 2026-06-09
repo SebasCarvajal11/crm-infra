@@ -1,0 +1,38 @@
+[
+  {
+    "service": "auth",
+    "role": "auth_user",
+    "passwordEnvVar": "AUTH_DB_PASSWORD",
+    "schema": "schema_auth",
+    "grants": {
+      "schema": ["USAGE", "CREATE"],
+      "tables": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+      "sequences": ["USAGE", "SELECT", "UPDATE"],
+      "functions": ["EXECUTE"]
+    }
+  },
+  {
+    "service": "collab",
+    "role": "collab_user",
+    "passwordEnvVar": "COLLAB_DB_PASSWORD",
+    "schema": "schema_collab",
+    "grants": {
+      "schema": ["USAGE", "CREATE"],
+      "tables": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+      "sequences": ["USAGE", "SELECT", "UPDATE"],
+      "functions": ["EXECUTE"]
+    }
+  },
+  {
+    "service": "media",
+    "role": "media_user",
+    "passwordEnvVar": "MEDIA_DB_PASSWORD",
+    "schema": "schema_media",
+    "grants": {
+      "schema": ["USAGE", "CREATE"],
+      "tables": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+      "sequences": ["USAGE", "SELECT", "UPDATE"],
+      "functions": ["EXECUTE"]
+    }
+  }
+]

@@ -1,0 +1,38 @@
+title = "CIMA CRM — gitleaks configuration"
+
+# Allowlist for known non-secret patterns across the polyrepo.
+# Paths listed here are excluded from secret scanning to prevent
+# false positives on example files, seed data, and infra declarations.
+
+[allowlist]
+  description = "Global allowlist for CIMA CRM"
+  paths = [
+    '''\.env\.example$''',
+    '''\.env\.production\.example$''',
+    '''\.env\.docker$''',
+    '''seed\.ts$''',
+    '''grants\.json$''',
+    '''services\.json$''',
+    '''gitleaks\.toml$''',
+    '''\.sops\.yaml$''',
+  ]
+
+# Specific rules overrides — suppress noisy patterns
+[[rules]]
+  id = "generic-api-key"
+  description = "Generic API Key — suppressed for CI env vars"
+  [rules.allowlist]
+    paths = [
+      '''\.github/workflows/.*\.yml$''',
+      '''reusable-ci\.yml$''',
+    ]
+
+[[rules]]
+  id = "generic-password"
+  description = "Generic password — suppressed for example and docker files"
+  [rules.allowlist]
+    paths = [
+      '''\.env\.example$''',
+      '''\.env\.docker$''',
+      '''\.env\.production\.example$''',
+    ]

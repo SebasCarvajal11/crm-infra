@@ -1,14 +1,7 @@
 #!/bin/bash
-# Setup script for new CIMA CRM microservice
+# Scaffold a new CIMA CRM microservice from this template.
 # Usage: ./setup.sh <service-name> <port> [db-password]
-#
-# Example:
-#   ./setup.sh billing 3003 billingpassword
-#
-# This script:
-# 1. Copies the template to ../crm-<service-name>
-# 2. Replaces all placeholders with actual values
-# 3. Prints next steps for integration
+# Example: ./setup.sh billing 3004 billingpassword
 
 set -e
 
@@ -18,66 +11,74 @@ DB_PASSWORD=${3:-"${SERVICE_NAME}password"}
 
 if [ -z "$SERVICE_NAME" ] || [ -z "$PORT" ]; then
     echo "Usage: ./setup.sh <service-name> <port> [db-password]"
-    echo "Example: ./setup.sh billing 3003 billingpassword"
+    echo "Example: ./setup.sh billing 3004 billingpassword"
     exit 1
 fi
 
 SCHEMA_NAME="schema_${SERVICE_NAME}"
 DB_USER="${SERVICE_NAME}_user"
+SERVICE_TITLE="$(echo "${SERVICE_NAME}" | awk '{ print toupper(substr($0,1,1)) substr($0,2) }') Service"
 TEMPLATE_DIR="$(cd "$(dirname "$0")" && pwd)"
-TARGET_DIR="$(dirname "$TEMPLATE_DIR")/../../crm-${SERVICE_NAME}"
+TARGET_DIR="$(dirname "$(dirname "$(dirname "$TEMPLATE_DIR")")") /crm-${SERVICE_NAME}"
+# Simplified path: sibling of crm-infra
+TARGET_DIR="$(dirname "$(dirname "$(dirname "$TEMPLATE_DIR")")")crm-${SERVICE_NAME}"
 
 echo "🚀 Creating microservice: crm-${SERVICE_NAME} on port ${PORT}"
 echo ""
 
-# Check if target directory already exists
 if [ -d "$TARGET_DIR" ]; then
     echo "❌ Error: $TARGET_DIR already exists"
     exit 1
 fi
 
-# Copy template
-echo "📁 Copying template..."
+echo "📁 Copying template to $TARGET_DIR ..."
 cp -r "$TEMPLATE_DIR" "$TARGET_DIR"
 
-# Replace placeholders in all .template files
 echo "🔧 Replacing placeholders..."
-find "$TARGET_DIR" -type f -name "*.template" | while read -r file; do
-    # Replace placeholders
-    sed -i "s/{{SERVICE_NAME}}/$SERVICE_NAME/g" "$file"
-    sed -i "s/{{SERVICE_PORT}}/$PORT/g" "$file"
-    sed -i "s/{{SCHEMA_NAME}}/$SCHEMA_NAME/g" "$file"
-    sed -i "s/{{DB_USER}}/$DB_USER/g" "$file"
-    sed -i "s/{{DB_PASSWORD}}/$DB_PASSWORD/g" "$file"
-    sed -i "s/{{SERVICE_TITLE}}/$(echo "$SERVICE_NAME" | sed 's/.*/\u&/') Service/g" "$file"
-
-    # Remove .template extension
-    new_name="${file%.template}"
-    mv "$file" "$new_name"
+find "$TARGET_DIR" -type f \( -name "*.ts" -o -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.md" -o -name "*.template" -o -name "*.sh" -o -name "*.mjs" \) | while read -r file; do
+    sed -i "s/{{SERVICE_NAME}}/${SERVICE_NAME}/g" "$file"
+    sed -i "s/{{SERVICE_PORT}}/${PORT}/g" "$file"
+    sed -i "s/{{SCHEMA_NAME}}/${SCHEMA_NAME}/g" "$file"
+    sed -i "s/{{DB_USER}}/${DB_USER}/g" "$file"
+    sed -i "s/{{DB_PASSWORD}}/${DB_PASSWORD}/g" "$file"
+    sed -i "s/{{SERVICE_TITLE}}/${SERVICE_TITLE}/g" "$file"
 done
 
-# Create .gitkeep in modules directory
+# Rename .template files
+find "$TARGET_DIR" -name "*.template" | while read -r file; do
+    mv "$file" "${file%.template}"
+done
+
+# Create necessary directories
+mkdir -p "$TARGET_DIR/src/modules"
+mkdir -p "$TARGET_DIR/drizzle"
+mkdir -p "$TARGET_DIR/.github/workflows"
 touch "$TARGET_DIR/src/modules/.gitkeep"
+touch "$TARGET_DIR/drizzle/.gitkeep"
+
+# Make shell scripts executable
+chmod +x "$TARGET_DIR/docker-entrypoint.sh" "$TARGET_DIR/docker-healthcheck.sh" 2>/dev/null || true
 
 echo ""
-echo "✅ Microservice crm-${SERVICE_NAME} created at:"
-echo "   $TARGET_DIR"
+echo "✅ Microservice crm-${SERVICE_NAME} created at: $TARGET_DIR"
 echo ""
 echo "📋 Next steps:"
 echo ""
-echo "   1. Add schema to crm-infra/scripts/00-init-service-schemas.sh:"
-echo "      create_role_if_missing \"${DB_USER}\" \"\${${SERVICE_NAME^^}_DB_PASSWORD:-${DB_PASSWORD}}\""
+echo "   1. cd crm-${SERVICE_NAME} && pnpm install"
 echo ""
-echo "   2. Add service to crm-infra/docker-compose.yml"
+echo "   2. Copy your cima-contracts subdir:"
+echo "      cp -r ../cima-contracts crm-${SERVICE_NAME}/cima-contracts"
 echo ""
-echo "   3. Add proxy endpoint to crm-infra/gateway/endpoints/${SERVICE_NAME}-proxy.json"
+echo "   3. Create .env from .env.example and fill in secrets"
 echo ""
-echo "   4. Install dependencies:"
-echo "      cd crm-${SERVICE_NAME} && pnpm install"
+echo "   4. Register in crm-infra:"
+echo "      a) Add service to docker-compose.yml"
+echo "      b) Add to setup/db.ps1 bootstrap list"
+echo "      c) Gateway auto-discovers from gateway/gateway.manifest.json"
 echo ""
-echo "   5. Start development:"
+echo "   5. Bootstrap DB (requires DB_SUPERUSER_URL):"
+echo "      pnpm db:bootstrap"
+echo ""
+echo "   6. Start dev server:"
 echo "      pnpm dev"
-echo ""
-echo "   6. Generate database schema:"
-echo "      pnpm db:push"
 echo ""

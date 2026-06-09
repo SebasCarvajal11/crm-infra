@@ -11,14 +11,12 @@ $ErrorActionPreference = "Stop"
 #>
 
 $infraRoot = Split-Path -Parent $PSScriptRoot
-$trustSecret = if ($env:GATEWAY_TRUST_SECRET) { $env:GATEWAY_TRUST_SECRET } else { "cima-local-gateway-trust-secret-do-not-use-production-2026" }
 
 Write-Host "⚙️  Generando krakend.json..." -ForegroundColor Cyan
 
 $env:KRAKEND_AUTH_HOST = "http://127.0.0.1:3000"
 $env:KRAKEND_COLLAB_HOST = "http://127.0.0.1:3001"
 $env:KRAKEND_MEDIA_HOST = "http://127.0.0.1:3002"
-$env:GATEWAY_TRUST_SECRET = $trustSecret
 
 Push-Location $infraRoot
 try {

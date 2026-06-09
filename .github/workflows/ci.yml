@@ -31,7 +31,6 @@ jobs:
       GATEWAY_HOST_PORT: "8080"
       FRONTEND_HOST_PORT: "80"
       POSTGRES_HOST_PORT: "5432"
-      GATEWAY_TRUST_SECRET: ci-gateway-trust-secret-minimum-32-bytes
       KRAKEND_AUTH_HOST: http://auth:3000
       KRAKEND_COLLAB_HOST: http://collab:3001
       KRAKEND_MEDIA_HOST: http://media:3002
@@ -55,6 +54,7 @@ jobs:
           path: crm-auth
           sparse-checkout: |
             gateway
+            openapi
             .env.production.example
           sparse-checkout-cone-mode: false
 
@@ -65,6 +65,7 @@ jobs:
           path: crm-collab
           sparse-checkout: |
             gateway
+            openapi
             .env.production.example
           sparse-checkout-cone-mode: false
 
@@ -75,7 +76,19 @@ jobs:
           path: crm-media
           sparse-checkout: |
             gateway
+            openapi
             .env.production.example
+          sparse-checkout-cone-mode: false
+
+
+      - name: Checkout contracts
+        uses: actions/checkout@v6
+        with:
+          repository: SebasCarvajal11/cima-contracts
+          path: cima-contracts
+          sparse-checkout: |
+            src
+            package.json
           sparse-checkout-cone-mode: false
 
       - name: Setup pnpm
@@ -92,6 +105,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Validate services registry
+        run: pnpm registry:validate
 
       - name: Validate deploy shell scripts
         run: |
@@ -133,12 +149,12 @@ jobs:
           DATABASE_URL=postgres://auth_user:authpassword@postgres_db:5432/crm_database
           REDIS_URL=redis://redis:6379
           DB_SCHEMA=schema_auth
-          GATEWAY_TRUST_SECRET=ci-gateway-trust-secret-minimum-32-bytes
+          TRUST_GATEWAY_JWT_HEADERS=false
           EOF
           cat > deploy/runtime/collab.blue.env <<'EOF'
           DATABASE_URL=postgres://collab_user:collabpassword@postgres_db:5432/crm_database
           DB_SCHEMA=schema_collab
-          GATEWAY_TRUST_SECRET=ci-gateway-trust-secret-minimum-32-bytes
+          TRUST_GATEWAY_JWT_HEADERS=false
           MEDIA_COMMANDS_STREAM_KEY=media:commands
           MEDIA_RESPONSES_STREAM_KEY=media:responses
           MEDIA_RESPONSES_CONSUMER_GROUP=collab-media-response-consumers
@@ -149,7 +165,7 @@ jobs:
           DATABASE_URL=postgres://media_user:mediapassword@postgres_db:5432/crm_database
           REDIS_URL=redis://redis:6379
           DB_SCHEMA=schema_media
-          GATEWAY_TRUST_SECRET=ci-gateway-trust-secret-minimum-32-bytes
+          TRUST_GATEWAY_JWT_HEADERS=false
           CLAMAV_HOST=clamav-scanner
           CLAMAV_PORT=3310
           MOD_COLLAB_URL=http://collab:3001
@@ -157,16 +173,18 @@ jobs:
           MEDIA_RESPONSES_STREAM_KEY=media:responses
           MEDIA_COMMANDS_CONSUMER_GROUP=media-command-consumers
           EOF
-
+ 
       - name: Build KrakenD config
         env:
-          GATEWAY_TRUST_SECRET: ci-gateway-trust-secret-minimum-32-bytes
           KRAKEND_AUTH_HOST: http://auth:3000
           KRAKEND_COLLAB_HOST: http://collab:3001
           KRAKEND_MEDIA_HOST: http://media:3002
           KRAKEND_ENDPOINTS_SOURCE: file
           KRAKEND_PORT: "8080"
         run: pnpm gateway:build --output deploy/runtime/krakend.blue.json
+
+      - name: Build API Portal
+        run: pnpm portal:build
 
       - name: Validate Docker Compose
         run: docker compose -f docker-compose.yml config > /dev/null
@@ -179,3 +197,390 @@ jobs:
 
       - name: Assert runtime gateway config
         run: test -f deploy/runtime/krakend.blue.json
+
+  db-bootstrap:
+    name: DB Bootstrap (grants.json + idempotent schema init)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: ci-postgres-password
+          POSTGRES_DB: crm_database
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U root -d crm_database"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      POSTGRES_USER: root
+      POSTGRES_DB: crm_database
+      AUTH_DB_PASSWORD: authpassword_ci
+      COLLAB_DB_PASSWORD: collabpassword_ci
+      MEDIA_DB_PASSWORD: mediapassword_ci
+      PGHOST: localhost
+      PGPORT: 5432
+      PGPASSWORD: ci-postgres-password
+
+    steps:
+      - name: Checkout infra
+        uses: actions/checkout@v6
+        with:
+          path: crm-infra
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: crm-infra/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate grants.json schema
+        run: node scripts/validate-registry.mjs
+
+      - name: Validate bootstrap shell script syntax
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/crm-infra/scripts/00-init-service-schemas.sh:/bootstrap.sh:ro" \
+            bash:5 bash -n /bootstrap.sh
+
+      - name: Run bootstrap (first pass — idempotent create)
+        run: |
+          chmod +x scripts/00-init-service-schemas.sh
+          scripts/00-init-service-schemas.sh
+
+      - name: Run bootstrap (second pass — idempotent update, must be a no-op)
+        run: scripts/00-init-service-schemas.sh
+
+      - name: Verify roles and schemas exist
+        run: |
+          psql -U root -d crm_database -c "\dn" | grep -E "schema_auth|schema_collab|schema_media"
+          psql -U root -d crm_database -c "\du" | grep -E "auth_user|collab_user|media_user"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # SMOKE E2E — Full-stack Playwright tests against Docker Compose
+  # ═══════════════════════════════════════════════════════════════════
+  smoke:
+    name: Smoke E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [gateway-build, db-bootstrap]
+
+    env:
+      COMPOSE_PROJECT_NAME: cima_smoke_ci
+      POSTGRES_HOST_PORT: "5432"
+      REDIS_HOST_PORT: "6379"
+      CLAMAV_HOST_PORT: "3310"
+      GATEWAY_HOST_PORT: "8080"
+      FRONTEND_HOST_PORT: "80"
+      AUTH_DB_PASSWORD: authpassword_ci
+      COLLAB_DB_PASSWORD: collabpassword_ci
+      MEDIA_DB_PASSWORD: mediapassword_ci
+      SMOKE_BASE_URL: "http://127.0.0.1:80"
+      OCI_CONFIG_HOST_DIR: /tmp/oci
+      OCI_CONFIG_CONTAINER_DIR: /opt/cima/secrets/oci
+
+    steps:
+      # ── Checkouts ───────────────────────────────────────────────
+      - name: Checkout infra
+        uses: actions/checkout@v6
+        with:
+          path: crm-infra
+
+      - name: Checkout crm-auth
+        uses: actions/checkout@v6
+        with:
+          repository: SebasCarvajal11/crm-auth
+          path: crm-auth
+
+      - name: Checkout crm-collab
+        uses: actions/checkout@v6
+        with:
+          repository: SebasCarvajal11/crm-collab
+          path: crm-collab
+
+      - name: Checkout crm-media
+        uses: actions/checkout@v6
+        with:
+          repository: SebasCarvajal11/crm-media
+          path: crm-media
+
+      - name: Checkout crm-frontend
+        uses: actions/checkout@v6
+        with:
+          repository: SebasCarvajal11/crm-frontend
+          path: crm-frontend
+
+      - name: Checkout cima-contracts
+        uses: actions/checkout@v6
+        with:
+          repository: SebasCarvajal11/cima-contracts
+          path: cima-contracts
+          sparse-checkout: |
+            src
+            package.json
+          sparse-checkout-cone-mode: false
+
+      # ── Tooling ─────────────────────────────────────────────────
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: crm-infra/pnpm-lock.yaml
+
+      - name: Install infra dependencies
+        working-directory: crm-infra
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: crm-infra
+        run: pnpm dlx playwright install chromium --with-deps
+
+      # ── Prepare service .env files ──────────────────────────────
+      - name: Generate JWT keys and service .env files
+        shell: bash
+        run: |
+          node -e "
+          const fs = require('node:fs');
+          const { generateKeyPairSync } = require('node:crypto');
+
+          // Auth JWT keys
+          const auth = generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { type: 'spki', format: 'pem' },
+            privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+          });
+          const esc = (pem) => JSON.stringify(pem.trimEnd());
+
+          fs.writeFileSync('crm-auth/.env', [
+            'DATABASE_URL=postgresql://auth_user:authpassword_ci@postgres_db:5432/crm_database',
+            'REDIS_URL=redis://redis:6379',
+            'DB_SCHEMA=schema_auth',
+            'NODE_ENV=test',
+            'EXPOSE_TEMP_PASSWORDS=true',
+            'PORT=3000',
+            'REFRESH_COOKIE_PATH=/auth/refresh',
+            'MAIL_TRANSPORT=log',
+            'APP_PUBLIC_URL=http://localhost:80',
+            'ADMIN_INVITE_SECRET=test-admin-secret',
+            'TRUST_GATEWAY_JWT_HEADERS=false',
+            \`JWT_PRIVATE_KEY=\${esc(auth.privateKey)}\`,
+            \`JWT_PUBLIC_KEY=\${esc(auth.publicKey)}\`,
+            'JWT_KID=mod-auth-rsa-1',
+            'AUTH_EVENTS_STREAM_KEY=stream:auth.identity',
+            'AUTH_EVENTS_STREAM_MAXLEN=10000',
+          ].join('\\n') + '\\n');
+
+          // Collab SERVICE_JWT keys
+          const collab = generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { type: 'spki', format: 'pem' },
+            privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+          });
+
+          fs.writeFileSync('crm-collab/.env', [
+            'DATABASE_URL=postgresql://collab_user:collabpassword_ci@postgres_db:5432/crm_database',
+            'REDIS_URL=redis://redis:6379',
+            'DB_SCHEMA=schema_collab',
+            'PORT=3001',
+            'NODE_ENV=test',
+            'TRUST_GATEWAY_JWT_HEADERS=false',
+            'MOD_COLLAB_CORS=false',
+            'CORS_ORIGIN=http://localhost:80',
+            \`SERVICE_JWT_PRIVATE_KEY=\${esc(collab.privateKey)}\`,
+            \`SERVICE_JWT_PUBLIC_KEY=\${esc(collab.publicKey)}\`,
+            'SERVICE_JWT_KID=collab-service-rsa-1',
+            'AUTH_EVENTS_STREAM_KEY=stream:auth.identity',
+            'AUTH_EVENTS_CONSUMER_GROUP=group:collab.auth-identity',
+            'AUTH_EVENTS_MAX_RETRIES=3',
+            'AUTH_EVENTS_PENDING_IDLE_MS=30000',
+            'COLLAB_EVENTS_DLQ_STREAM_KEY=stream:collab.identity-dlq',
+            'MEDIA_COMMANDS_STREAM_KEY=stream:collab.media-commands',
+            'MEDIA_RESPONSES_STREAM_KEY=stream:media.asset-responses',
+            'MEDIA_RESPONSES_CONSUMER_GROUP=group:collab.media-responses',
+            'MEDIA_COMMAND_TIMEOUT_MS=8000',
+            'JWKS_URI=http://crm-auth:3000/.well-known/jwks.json',
+            'JWKS_CACHE_TTL_MS=300000',
+            'DOC_PAR_TTL_SECONDS=300',
+          ].join('\\n') + '\\n');
+
+          // Media .env
+          fs.writeFileSync('crm-media/.env', [
+            'PORT=3002',
+            'NODE_ENV=test',
+            'DATABASE_URL=postgresql://media_user:mediapassword_ci@postgres_db:5432/crm_database',
+            'DB_SCHEMA=schema_media',
+            'TRUST_GATEWAY_JWT_HEADERS=false',
+            'JWKS_URI=http://crm-auth:3000/.well-known/jwks.json',
+            'COLLAB_JWKS_URI=http://crm-collab:3001/.well-known/service-jwks.json',
+            'COLLAB_JWT_PUBLIC_KEY=',
+            'COLLAB_JWT_ISS=crm-collab',
+            'REDIS_URL=redis://redis:6379',
+            'MEDIA_COMMANDS_STREAM_KEY=stream:collab.media-commands',
+            'MEDIA_RESPONSES_STREAM_KEY=stream:media.asset-responses',
+            'MEDIA_COMMANDS_CONSUMER_GROUP=group:media.commands',
+            'MEDIA_COMMANDS_DLQ_STREAM_KEY=stream:media.commands-dlq',
+            'CLAMAV_HOST=clamav-scanner',
+            'CLAMAV_PORT=3310',
+            'CLAMAV_SCAN_TIMEOUT_MS=90000',
+            'DOC_PAR_TTL_SECONDS=300',
+            'OCI_PAR_PRUNE_MAX=80',
+            'AVATAR_VERSIONS_TO_KEEP=3',
+            'OCI_CONFIG_FILE_PATH=/opt/cima/secrets/oci/oci.config',
+            'OCI_CONFIG_PROFILE=DEFAULT',
+            \`OCI_REGION=\${process.env.OCI_REGION || 'us-sanjose-1'}\`,
+            \`OCI_NAMESPACE=\${process.env.OCI_NAMESPACE || 'placeholder'}\`,
+            'OCI_BUCKET_AVATARS_PUBLIC=crm-avatars-public',
+            'OCI_BUCKET_DOCS_PRIVATE=crm-docs-private',
+          ].join('\\n') + '\\n');
+          "
+
+      - name: Prepare OCI config for media service
+        shell: bash
+        run: |
+          mkdir -p /tmp/oci
+          if [ -n "${{ secrets.OCI_CONFIG_CONTENT }}" ]; then
+            echo "${{ secrets.OCI_CONFIG_CONTENT }}" > /tmp/oci/oci.config
+            echo "${{ secrets.OCI_PRIVATE_KEY }}" > /tmp/oci/oci_api_key.pem
+            chmod 600 /tmp/oci/oci_api_key.pem
+          else
+            # Dummy config — media will start but file operations will fail gracefully
+            cat > /tmp/oci/oci.config << 'OCIEOF'
+          [DEFAULT]
+          user=ocid1.user.oc1..placeholder
+          fingerprint=aa:bb:cc:dd:ee:ff:00:11:22:33
+          tenancy=ocid1.tenancy.oc1..placeholder
+          region=us-sanjose-1
+          key_file=/opt/cima/secrets/oci/oci_api_key.pem
+          OCIEOF
+            echo "placeholder-key" > /tmp/oci/oci_api_key.pem
+          fi
+
+      - name: Prepare gateway build env
+        shell: bash
+        run: |
+          mkdir -p crm-infra/deploy/runtime
+          cat > crm-infra/deploy/runtime/edge.conf << 'EOF'
+          server {
+              listen 80;
+              server_name _;
+              location / {
+                  return 200 'edge-ready';
+                  add_header Content-Type text/plain;
+              }
+          }
+          EOF
+
+      # ── Build & Start Stack ─────────────────────────────────────
+      - name: Build and start Docker stack
+        working-directory: crm-infra
+        shell: bash
+        run: |
+          docker compose -f docker-compose.yml --env-file .env.docker up -d --build 2>&1 || {
+            echo "=== Docker compose logs ==="
+            docker compose -f docker-compose.yml --env-file .env.docker logs --tail=50
+            exit 1
+          }
+        env:
+          KRAKEND_AUTH_HOST: http://crm-auth:3000
+          KRAKEND_COLLAB_HOST: http://crm-collab:3001
+          KRAKEND_MEDIA_HOST: http://crm-media:3002
+          KRAKEND_ENDPOINTS_SOURCE: file
+
+      - name: Wait for services to be healthy
+        shell: bash
+        run: |
+          wait_for_url() {
+            local url="$1" name="$2" deadline=$((SECONDS + 180))
+            echo -n "  Waiting for $name..."
+            while (( SECONDS < deadline )); do
+              if curl -sf "$url" >/dev/null 2>&1; then echo " OK"; return 0; fi
+              sleep 3
+            done
+            echo " FAIL"; return 1
+          }
+
+          FAILED=0
+          wait_for_url "http://localhost:8080/health" "api-gateway" || FAILED=1
+          wait_for_url "http://localhost:3000/health" "crm-auth" || FAILED=1
+          wait_for_url "http://localhost:3001/health" "crm-collab" || FAILED=1
+          wait_for_url "http://localhost:3002/health" "crm-media" || FAILED=1
+          wait_for_url "http://localhost:80" "crm-frontend" || FAILED=1
+
+          if (( FAILED )); then
+            echo ""
+            echo "=== Service logs (last 30 lines each) ==="
+            for svc in crm-auth crm-collab crm-media crm-frontend api-gateway; do
+              echo "--- $svc ---"
+              docker compose -f crm-infra/docker-compose.yml logs --tail=30 "$svc" 2>/dev/null || true
+            done
+            exit 1
+          fi
+
+      # ── Database Setup ──────────────────────────────────────────
+      - name: Install service dependencies
+        shell: bash
+        run: |
+          for repo in crm-auth crm-collab crm-media; do
+            echo "Installing deps in $repo..."
+            (cd $repo && pnpm install --frozen-lockfile)
+          done
+
+      - name: Run DB bootstrap and migrations
+        shell: bash
+        env:
+          DB_SUPERUSER_URL: postgresql://root:rootpassword@localhost:5432/crm_database
+        run: |
+          # crm-auth: bootstrap + push + audit partition
+          (cd crm-auth && DB_SCHEMA=schema_auth pnpm db:bootstrap && DB_SCHEMA=schema_auth pnpm db:push && pnpm db:partition-audit-migrate)
+          # crm-collab: bootstrap + push
+          (cd crm-collab && DB_SCHEMA=schema_collab pnpm db:bootstrap && DB_SCHEMA=schema_collab pnpm db:push)
+          # crm-media: bootstrap + push
+          (cd crm-media && DB_SCHEMA=schema_media pnpm db:bootstrap && DB_SCHEMA=schema_media pnpm db:push)
+
+      - name: Seed test data
+        shell: bash
+        run: (cd crm-auth && pnpm db:seed)
+
+      # ── Playwright Smoke Tests ──────────────────────────────────
+      - name: Run Playwright smoke tests
+        working-directory: crm-infra
+        shell: bash
+        run: pnpm dlx @playwright/test test -c scripts/playwright.smoke.config.js
+
+      # ── Artifacts ───────────────────────────────────────────────
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: |
+            crm-infra/test-results/
+            crm-infra/VerificationReport.md
+          retention-days: 14
+
+      # ── Cleanup ─────────────────────────────────────────────────
+      - name: Tear down Docker stack
+        if: always()
+        working-directory: crm-infra
+        shell: bash
+        run: docker compose -f docker-compose.yml --env-file .env.docker down -v

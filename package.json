@@ -5,11 +5,15 @@
   "main": "gateway/build-krakend.mjs",
   "packageManager": "pnpm@11.1.1",
   "scripts": {
-    "contracts:build": "pnpm --dir contracts install --frozen-lockfile && pnpm --dir contracts exec tsc -p tsconfig.json",
     "gateway:build": "node gateway/build-krakend.mjs",
+    "compose:generate": "node scripts/generate-compose.mjs",
+    "registry:validate": "node scripts/validate-registry.mjs",
+    "portal:build": "node scripts/build-portal.mjs",
     "smoke:multirepo": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-multirepo.ps1",
     "verify:frontend-ui": "pnpm dlx @playwright/test test -c scripts/playwright.cutover.config.js",
     "verify:multirepo": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-multirepo.ps1",
+    "test:contracts": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-contract-tests.ps1",
+    "smoke:test": "pnpm dlx @playwright/test test -c scripts/playwright.smoke.config.js",
     "setup:env": "pwsh -File setup/env.ps1",
     "setup:db": "pwsh -File setup/db.ps1",
     "setup:gateway": "pwsh -File setup/gateway.ps1",
@@ -36,6 +40,7 @@
     "yaml": "^2.9.0"
   },
   "devDependencies": {
+    "ajv": "^8.17.1",
     "concurrently": "^9.1.0"
   }
 }

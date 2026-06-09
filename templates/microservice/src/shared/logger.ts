@@ -1,4 +1,12 @@
 import pino from "pino";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+// ── Trace Storage ──────────────────────────────────────────────────────────
+export interface TraceContext {
+  traceId: string;
+  correlationId?: string;
+}
+export const traceStorage = new AsyncLocalStorage<TraceContext>();
 
 // ── PII Redaction Paths ─────────────────────────────────────────────────────
 const REDACTED_PATHS = [
@@ -25,6 +33,14 @@ export function createLogger(service: string): pino.Logger {
 
   return pino({
     level,
+    mixin() {
+      const store = traceStorage.getStore();
+      if (!store) return {};
+      return {
+        traceId: store.traceId,
+        ...(store.correlationId ? { correlationId: store.correlationId } : {}),
+      };
+    },
     redact: {
       paths: REDACTED_PATHS,
       remove: true,
@@ -38,6 +54,7 @@ export function createLogger(service: string): pino.Logger {
           pid: bindings.pid,
           host: bindings.hostname,
           service,
+          version: process.env.SERVICE_VERSION || "1.0.0",
         };
       },
     },

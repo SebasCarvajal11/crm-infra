@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-#Requires -Version 7.0
+#Requires -Version 5.1
 $ErrorActionPreference = "Stop"
 
 <#
@@ -14,47 +14,56 @@ $infraRoot = Split-Path -Parent $PSScriptRoot
 $workspaceRoot = Split-Path -Parent $infraRoot
 $postgresPort = if ($env:POSTGRES_HOST_PORT) { $env:POSTGRES_HOST_PORT } else { "15432" }
 
-# ── Wait for Postgres ───────────────────────────────────────────────────────
-Write-Host "⏳ Esperando PostgreSQL en localhost:$postgresPort..." -ForegroundColor Cyan
+# -- Wait for Postgres -------------------------------------------------------
+Write-Host "[INFO] Waiting for PostgreSQL on localhost:$postgresPort..." -ForegroundColor Cyan
 $maxAttempts = 30
 for ($i = 0; $i -lt $maxAttempts; $i++) {
     try {
         $tcp = New-Object System.Net.Sockets.TcpClient
         $tcp.Connect("localhost", [int]$postgresPort)
         $tcp.Close()
-        Write-Host "  ✓ PostgreSQL disponible" -ForegroundColor Green
+        Write-Host "  [OK] PostgreSQL available" -ForegroundColor Green
         break
     } catch {
         if ($i -eq $maxAttempts - 1) {
-            Write-Host "  ✗ PostgreSQL no disponible después de $maxAttempts intentos" -ForegroundColor Red
+            Write-Host "  [ERROR] PostgreSQL not available after $maxAttempts attempts" -ForegroundColor Red
             exit 1
         }
         Start-Sleep -Seconds 2
     }
 }
 
-# ── Run migrations ──────────────────────────────────────────────────────────
-$services = @(
-    @{ Name = "crm-auth"; Dir = "crm-auth"; Scripts = @("db:push", "db:partition-audit-migrate") },
-    @{ Name = "crm-collab"; Dir = "crm-collab"; Scripts = @("db:push") },
-    @{ Name = "crm-media"; Dir = "crm-media"; Scripts = @("db:push") }
-)
+# -- Run migrations ----------------------------------------------------------
+$postgresUser = if ($env:POSTGRES_USER) { $env:POSTGRES_USER } else { "root" }
+$postgresPassword = if ($env:POSTGRES_PASSWORD) { $env:POSTGRES_PASSWORD } else { "rootpassword" }
+$postgresDb = if ($env:POSTGRES_DB) { $env:POSTGRES_DB } else { "crm_database" }
+$env:DB_SUPERUSER_URL = "postgresql://${postgresUser}:${postgresPassword}@localhost:${postgresPort}/${postgresDb}"
 
-foreach ($service in $services) {
-    $serviceDir = Join-Path $workspaceRoot $service.Dir
+$servicesPath = Join-Path (Join-Path $infraRoot "registry") "services.json"
+if (-not (Test-Path $servicesPath)) {
+    Write-Host "[ERROR] Registry services.json not found at $servicesPath" -ForegroundColor Red
+    exit 1
+}
+
+$servicesRegistry = Get-Content -Raw $servicesPath | ConvertFrom-Json
+$dbServices = $servicesRegistry | Where-Object { $_.schema -ne $null -and $_.dbSetupScripts -ne $null }
+
+foreach ($service in $dbServices) {
+    $serviceName = "crm-$($service.name)"
+    $serviceDir = Join-Path $workspaceRoot $serviceName
     if (-not (Test-Path $serviceDir)) {
-        Write-Host "  ⚠ $($service.Name) no encontrado, saltando..." -ForegroundColor Yellow
+        Write-Host "  [WARN] $serviceName not found, skipping..." -ForegroundColor Yellow
         continue
     }
 
-    foreach ($script in $service.Scripts) {
-        Write-Host "🔧 $($service.Name): $script" -ForegroundColor Cyan
+    foreach ($script in $service.dbSetupScripts) {
+        Write-Host "[RUN] ${serviceName}: $script" -ForegroundColor Cyan
         Push-Location $serviceDir
         try {
             pnpm $script
-            Write-Host "  ✓ $script completado" -ForegroundColor Green
+            Write-Host "  [OK] $script completed" -ForegroundColor Green
         } catch {
-            Write-Host "  ✗ $script falló: $_" -ForegroundColor Red
+            Write-Host "  [ERROR] $script failed: $_" -ForegroundColor Red
             Pop-Location
             exit 1
         }
@@ -62,22 +71,22 @@ foreach ($service in $services) {
     }
 }
 
-# ── Seed ────────────────────────────────────────────────────────────────────
-Write-Host "🌱 Sembrando datos iniciales..." -ForegroundColor Cyan
+# -- Seed --------------------------------------------------------------------
+Write-Host "[SEED] Seeding initial data..." -ForegroundColor Cyan
 $authDir = Join-Path $workspaceRoot "crm-auth"
 if (Test-Path $authDir) {
     Push-Location $authDir
     try {
         pnpm db:seed
-        Write-Host "  ✓ Seed completado" -ForegroundColor Green
+        Write-Host "  [OK] Seed completed" -ForegroundColor Green
     } catch {
-        Write-Host "  ✗ Seed falló: $_" -ForegroundColor Red
+        Write-Host "  [ERROR] Seed failed: $_" -ForegroundColor Red
         Pop-Location
         exit 1
     }
     Pop-Location
 } else {
-    Write-Host "  ⚠ crm-auth no encontrado, saltando seed" -ForegroundColor Yellow
+    Write-Host "  [WARN] crm-auth not found, skipping seed" -ForegroundColor Yellow
 }
 
-Write-Host "`n✅ Base de datos configurada" -ForegroundColor Green
+Write-Host "`n[OK] Database setup completed successfully" -ForegroundColor Green

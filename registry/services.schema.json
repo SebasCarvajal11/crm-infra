@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["name", "repo", "port", "composeService"],
+    "properties": {
+      "name": { "type": "string" },
+      "repo": { "type": "string" },
+      "port": { "type": "integer" },
+      "schema": { "type": "string" },
+      "image": { "type": "string" },
+      "composeService": { "type": "string" },
+      "manifestPath": { "type": "string" },
+      "composeFile": { "type": "string" },
+      "dbInitScript": { "type": "string" },
+      "dbMigrateScript": { "type": "string" },
+      "dbSetupScripts": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "requiredSecrets": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "workers": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["name", "command"],
+          "properties": {
+            "name": { "type": "string" },
+            "command": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      },
+      "circuitBreaker": {
+        "type": "object",
+        "properties": {
+          "max_errors": { "type": "integer" },
+          "interval": { "type": "integer" },
+          "timeout": { "type": "integer" }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}
+

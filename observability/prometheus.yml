@@ -1,0 +1,35 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    stack: cima-crm
+
+scrape_configs:
+  # API Gateway
+  - job_name: krakend
+    static_configs:
+      - targets: ["api-gateway:9091"]
+        labels:
+          service: krakend
+
+  # Servicios backend — cada uno expone GET /metrics (prom-client)
+  - job_name: crm-auth
+    static_configs:
+      - targets: ["crm-auth:3000"]
+        labels:
+          service: crm-auth
+    metrics_path: /metrics
+
+  - job_name: crm-collab
+    static_configs:
+      - targets: ["crm-collab:3001"]
+        labels:
+          service: crm-collab
+    metrics_path: /metrics
+
+  - job_name: crm-media
+    static_configs:
+      - targets: ["crm-media:3002"]
+        labels:
+          service: crm-media
+    metrics_path: /metrics

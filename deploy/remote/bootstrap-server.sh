@@ -59,6 +59,35 @@ for repo in crm-infra crm-auth crm-collab crm-media crm-frontend; do
   ensure_env_file "$repo"
 done
 
+# --- SOPS secret decryption ---
+# If sops is available and encrypted env files exist, decrypt them
+# to overwrite the template .env.production files with real values.
+# Requires SOPS_AGE_KEY environment variable (or age key at ~/.config/sops/age/keys.txt).
+decrypt_sops_secrets() {
+  if ! command -v sops >/dev/null 2>&1; then
+    echo "[sops] sops not found — skipping secret decryption"
+    return 0
+  fi
+
+  local secrets_dir="${base_dir}/crm-infra/secrets"
+  if [[ ! -d "$secrets_dir" ]]; then
+    echo "[sops] No secrets/ directory — skipping"
+    return 0
+  fi
+
+  for enc_file in "$secrets_dir"/*.env.enc; do
+    [[ -f "$enc_file" ]] || continue
+    local basename
+    basename="$(basename "$enc_file" .env.enc)"
+    local target="${base_dir}/${basename}/.env.production"
+
+    echo "[sops] Decrypting ${enc_file} → ${target}"
+    sops -d "$enc_file" > "$target"
+  done
+}
+
+decrypt_sops_secrets
+
 mkdir -p "${base_dir}/crm-infra/deploy/runtime"
 
 ensure_docker_primitive network crm-shared-backplane
