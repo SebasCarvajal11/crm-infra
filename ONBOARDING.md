@@ -91,7 +91,7 @@ El sistema está diseñado bajo el principio de aislamiento de fallos: cada serv
 
 ## 6. Stack de Observabilidad (Prometheus + Loki + Grafana)
 
-El stack de observabilidad se levanta automáticamente con `docker compose up -d` desde `crm-infra`.
+Los archivos de configuración del stack de observabilidad están en `observability/` pero los servicios **no están incluidos** en el `docker-compose.yml` actual. Para levantarlos, es necesario agregarlos al compose o usar un compose separado.
 
 ### URLs de acceso (dev local)
 
