@@ -110,7 +110,6 @@ pnpm worker:quarantine-scan
 
 Useful commands:
 
-- `pnpm contracts:build`
 - `KRAKEND_AUTH_HOST=... KRAKEND_COLLAB_HOST=... KRAKEND_MEDIA_HOST=... pnpm gateway:build`
 - `docker compose --env-file .env.docker config --quiet`
 - `docker compose --env-file .env.docker up --build`
