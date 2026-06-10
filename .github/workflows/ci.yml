@@ -426,7 +426,7 @@ jobs:
             'MEDIA_RESPONSES_STREAM_KEY=stream:media.asset-responses',
             'MEDIA_RESPONSES_CONSUMER_GROUP=group:collab.media-responses',
             'MEDIA_COMMAND_TIMEOUT_MS=8000',
-            'JWKS_URI=http://crm-auth:3000/.well-known/jwks.json',
+            'JWKS_URI=http://crm-auth:3000/api/v1/.well-known/jwks.json',
             'JWKS_CACHE_TTL_MS=300000',
             'DOC_PAR_TTL_SECONDS=300',
           ].join('\\n') + '\\n');
@@ -438,9 +438,8 @@ jobs:
             'DATABASE_URL=postgresql://media_user:mediapassword_ci@postgres_db:5432/crm_database',
             'DB_SCHEMA=schema_media',
             'TRUST_GATEWAY_JWT_HEADERS=false',
-            'JWKS_URI=http://crm-auth:3000/.well-known/jwks.json',
-            'COLLAB_JWKS_URI=http://crm-collab:3001/.well-known/service-jwks.json',
-            'COLLAB_JWT_PUBLIC_KEY=',
+            'JWKS_URI=http://crm-auth:3000/api/v1/.well-known/jwks.json',
+            'COLLAB_JWKS_URI=http://crm-collab:3001/api/v1/.well-known/service-jwks.json',
             'COLLAB_JWT_ISS=crm-collab',
             'REDIS_URL=redis://redis:6379',
             'MEDIA_COMMANDS_STREAM_KEY=stream:collab.media-commands',
@@ -499,12 +498,13 @@ jobs:
           }
           EOF
 
-      # ── Build & Start Stack ─────────────────────────────────────
-      - name: Build and start Docker stack
+      # ── Build & Start Dependencies ──────────────────────────────
+      - name: Build Docker images and start dependencies
         working-directory: crm-infra
         shell: bash
         run: |
-          docker compose -f docker-compose.yml --env-file .env.docker up -d --build 2>&1 || {
+          docker compose -f docker-compose.yml --env-file .env.docker build
+          docker compose -f docker-compose.yml --env-file .env.docker up -d postgres_db redis clamav-scanner 2>&1 || {
             echo "=== Docker compose logs ==="
             docker compose -f docker-compose.yml --env-file .env.docker logs --tail=50
             exit 1
@@ -515,31 +515,31 @@ jobs:
           KRAKEND_MEDIA_HOST: http://crm-media:3002
           KRAKEND_ENDPOINTS_SOURCE: file
 
-      - name: Wait for services to be healthy
+      - name: Wait for dependencies to be healthy
         working-directory: ${{ github.workspace }}
         shell: bash
         run: |
-          wait_for_url() {
-            local url="$1" name="$2" deadline=$((SECONDS + 180))
+          wait_for_compose() {
+            local name="$1" check="$2" deadline=$((SECONDS + 180))
             echo -n "  Waiting for $name..."
             while (( SECONDS < deadline )); do
-              if curl -sf "$url" >/dev/null 2>&1; then echo " OK"; return 0; fi
+              if (cd crm-infra && docker compose -f docker-compose.yml --env-file .env.docker exec -T "$name" sh -lc "$check") >/dev/null 2>&1; then
+                echo " OK"
+                return 0
+              fi
               sleep 3
             done
             echo " FAIL"; return 1
           }
 
           FAILED=0
-          wait_for_url "http://localhost:8080/health" "api-gateway" || FAILED=1
-          wait_for_url "http://localhost:3000/health" "crm-auth" || FAILED=1
-          wait_for_url "http://localhost:3001/health" "crm-collab" || FAILED=1
-          wait_for_url "http://localhost:3002/health" "crm-media" || FAILED=1
-          wait_for_url "http://localhost:80" "crm-frontend" || FAILED=1
+          wait_for_compose "postgres_db" "pg_isready -U root -d crm_database" || FAILED=1
+          wait_for_compose "redis" "redis-cli ping" || FAILED=1
 
           if (( FAILED )); then
             echo ""
-            echo "=== Service logs (last 30 lines each) ==="
-            for svc in crm-auth crm-collab crm-media crm-frontend api-gateway; do
+            echo "=== Dependency logs (last 30 lines each) ==="
+            for svc in postgres_db redis clamav-scanner; do
               echo "--- $svc ---"
               docker compose -f crm-infra/docker-compose.yml logs --tail=30 "$svc" 2>/dev/null || true
             done
@@ -573,6 +573,47 @@ jobs:
         working-directory: ${{ github.workspace }}
         shell: bash
         run: (cd crm-auth && pnpm db:seed)
+
+      - name: Start application stack
+        working-directory: crm-infra
+        shell: bash
+        run: |
+          docker compose -f docker-compose.yml --env-file .env.docker up -d 2>&1 || {
+            echo "=== Docker compose logs ==="
+            docker compose -f docker-compose.yml --env-file .env.docker logs --tail=50
+            exit 1
+          }
+
+      - name: Wait for services to be healthy
+        working-directory: ${{ github.workspace }}
+        shell: bash
+        run: |
+          wait_for_url() {
+            local url="$1" name="$2" deadline=$((SECONDS + 180))
+            echo -n "  Waiting for $name..."
+            while (( SECONDS < deadline )); do
+              if curl -sf "$url" >/dev/null 2>&1; then echo " OK"; return 0; fi
+              sleep 3
+            done
+            echo " FAIL"; return 1
+          }
+
+          FAILED=0
+          wait_for_url "http://localhost:8080/health" "api-gateway" || FAILED=1
+          wait_for_url "http://localhost:3000/api/v1/health" "crm-auth" || FAILED=1
+          wait_for_url "http://localhost:3001/api/v1/health" "crm-collab" || FAILED=1
+          wait_for_url "http://localhost:3002/api/v1/health" "crm-media" || FAILED=1
+          wait_for_url "http://localhost:80" "crm-frontend" || FAILED=1
+
+          if (( FAILED )); then
+            echo ""
+            echo "=== Service logs (last 30 lines each) ==="
+            for svc in crm-auth crm-collab crm-media crm-frontend api-gateway; do
+              echo "--- $svc ---"
+              docker compose -f crm-infra/docker-compose.yml logs --tail=30 "$svc" 2>/dev/null || true
+            done
+            exit 1
+          fi
 
       # ── Playwright Smoke Tests ──────────────────────────────────
       - name: Run Playwright smoke tests
