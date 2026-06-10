@@ -301,6 +301,7 @@ activate_edge_slot() {
   local slot="$1"
   local slot_front_port
   slot_front_port="$(slot_frontend_port "$slot")"
+  ensure_shared_docker_primitives
   render_edge_config "$slot_front_port"
   shared_compose_cmd up -d edge-proxy >/dev/null
   shared_compose_cmd exec -T edge-proxy nginx -s reload >/dev/null
