@@ -690,14 +690,17 @@ for svc_info in $db_services; do
       s_db_url="$(grep '^DATABASE_URL=' "$sDir/.env.example" | cut -d= -f2- || echo "")"
     fi
 
-    # Run init script based on language
-    if [[ "$sLanguage" == "typescript" ]]; then
-      with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" pnpm "$sInit"
-      with_dotenv "$sDir" "$sDir/.env.production" env DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" pnpm "$sMigrate"
-    elif [[ "$sLanguage" == "java" ]]; then
-      with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" ./gradlew "$sInit" --no-daemon
-      with_dotenv "$sDir" "$sDir/.env.production" env DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" ./gradlew "$sMigrate" --no-daemon
-    fi
+    mapfile -t setup_scripts < <(
+      jq -r ".[] | select(.name==\"$sName\") | (.dbSetupScripts // [(.dbInitScript // empty), (.dbMigrateScript // empty)])[] | select(. != \"\")" registry/services.json
+    )
+
+    for setup_script in "${setup_scripts[@]}"; do
+      if [[ "$sLanguage" == "typescript" ]]; then
+        with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" pnpm "$setup_script"
+      elif [[ "$sLanguage" == "java" ]]; then
+        with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" ./gradlew "$setup_script" --no-daemon
+      fi
+    done
   fi
 done
 
