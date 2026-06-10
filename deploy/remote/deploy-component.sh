@@ -461,9 +461,9 @@ wait_for_shared_services() {
 build_gateway_for_slot() {
   local slot="$1"
   run_in_repo "$stack_dir" env \
-    KRAKEND_AUTH_HOST="${KRAKEND_AUTH_HOST}" \
-    KRAKEND_COLLAB_HOST="${KRAKEND_COLLAB_HOST}" \
-    KRAKEND_MEDIA_HOST="${KRAKEND_MEDIA_HOST}" \
+    KRAKEND_AUTH_HOST="${KRAKEND_AUTH_HOST:-http://auth:3000}" \
+    KRAKEND_COLLAB_HOST="${KRAKEND_COLLAB_HOST:-http://collab:3001}" \
+    KRAKEND_MEDIA_HOST="${KRAKEND_MEDIA_HOST:-http://media:3002}" \
     KRAKEND_ENDPOINTS_SOURCE="${KRAKEND_ENDPOINTS_SOURCE:-file}" \
     KRAKEND_PORT="8080" \
     pnpm gateway:build --output "$runtime_dir/krakend.${slot}.json"
