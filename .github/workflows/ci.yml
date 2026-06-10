@@ -458,6 +458,7 @@ jobs:
             \`OCI_NAMESPACE=\${process.env.OCI_NAMESPACE || 'placeholder'}\`,
             'OCI_BUCKET_AVATARS_PUBLIC=crm-avatars-public',
             'OCI_BUCKET_DOCS_PRIVATE=crm-docs-private',
+            'OCI_HEALTHCHECK_ENABLED=false',
           ].join('\\n') + '\\n');
           "
 
@@ -481,6 +482,11 @@ jobs:
             } > /tmp/oci/oci.config
             openssl genrsa -out /tmp/oci/oci_api_key.pem 2048
             chmod 600 /tmp/oci/oci_api_key.pem
+          fi
+          if grep -Eq '^[[:space:]]*key_file[[:space:]]*=' /tmp/oci/oci.config; then
+            sed -i 's#^[[:space:]]*key_file[[:space:]]*=.*#key_file=/opt/cima/secrets/oci/oci_api_key.pem#' /tmp/oci/oci.config
+          else
+            printf '\nkey_file=/opt/cima/secrets/oci/oci_api_key.pem\n' >> /tmp/oci/oci.config
           fi
 
       - name: Prepare gateway build env
