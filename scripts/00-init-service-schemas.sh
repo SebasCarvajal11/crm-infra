@@ -18,7 +18,11 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-GRANTS_FILE="${GRANTS_JSON:-${SCRIPT_DIR}/../registry/db/grants.json}"
+DEFAULT_GRANTS_FILE="${SCRIPT_DIR}/../registry/db/grants.json"
+if [ -f "/registry/db/grants.json" ]; then
+  DEFAULT_GRANTS_FILE="/registry/db/grants.json"
+fi
+GRANTS_FILE="${GRANTS_JSON:-$DEFAULT_GRANTS_FILE}"
 
 : "${POSTGRES_DB:=crm_database}"
 : "${POSTGRES_USER:=root}"
