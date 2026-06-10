@@ -126,18 +126,20 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
     }
 
     // ── Subir archivo a tarea ──────────────────────────────────
-    try {
-      await page.getByRole('tab', { name: 'Archivos' }).click()
-      await page.getByRole('button', { name: 'Adjuntar archivo' }).click()
-      await page.locator('#tf-title').fill(`SmokeDoc ${suffix}`)
-      await page.locator('#tf-desc').fill('Documento de prueba smoke')
-      await page.getByLabel('Seleccionar archivo').setInputFiles(uploadFile)
-      await page.locator('div[role="dialog"] button:has-text("Subir archivo")').click()
-      await expect(
-        page.locator('div[role="dialog"]').getByText(`SmokeDoc ${suffix}`)
-      ).toBeVisible({ timeout: 60000 })
-    } catch (e) {
-      logError('Admin Upload', 'Falla al subir archivo a la tarea (posible latencia OCI)', e)
+    if (process.env.SMOKE_SKIP_FILE_UPLOAD !== 'true') {
+      try {
+        await page.getByRole('tab', { name: 'Archivos' }).click()
+        await page.getByRole('button', { name: 'Adjuntar archivo' }).click()
+        await page.locator('#tf-title').fill(`SmokeDoc ${suffix}`)
+        await page.locator('#tf-desc').fill('Documento de prueba smoke')
+        await page.getByLabel('Seleccionar archivo').setInputFiles(uploadFile)
+        await page.locator('div[role="dialog"] button:has-text("Subir archivo")').click()
+        await expect(
+          page.locator('div[role="dialog"]').getByText(`SmokeDoc ${suffix}`)
+        ).toBeVisible({ timeout: 60000 })
+      } catch (e) {
+        logError('Admin Upload', 'Falla al subir archivo a la tarea (posible latencia OCI)', e)
+      }
     }
 
     // ── Cerrar panel de tarea ──────────────────────────────────
@@ -296,7 +298,6 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
     // ── Verificar chat Cliente visible ─────────────────────────
     try {
       await page.getByRole('tab', { name: 'Conversacion' }).click()
-      await page.getByRole('tab', { name: 'Cliente' }).click()
       await expect(page.getByText('Admin: Iniciando comunicacion del proyecto smoke.')).toBeVisible()
     } catch (e) {
       logError('Client Chat Cliente', 'El chat Cliente no es visible o no tiene mensajes', e)

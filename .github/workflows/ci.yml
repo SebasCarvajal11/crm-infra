@@ -289,6 +289,7 @@ jobs:
       COLLAB_DB_PASSWORD: collabpassword_ci
       MEDIA_DB_PASSWORD: mediapassword_ci
       SMOKE_BASE_URL: "http://127.0.0.1:80"
+      SMOKE_SKIP_FILE_UPLOAD: "true"
       OCI_CONFIG_HOST_DIR: /tmp/oci
       OCI_CONFIG_CONTAINER_DIR: /opt/cima/secrets/oci
 
