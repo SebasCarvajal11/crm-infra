@@ -381,7 +381,7 @@ wait_for_compose_services_running() {
 
 write_runtime_env_files() {
   local slot="$1"
-  local sName sDir env_prod dest_env db_url redis_url semver
+  local sName sDir env_prod dest_env db_url redis_url semver db_schema
   
   # Get all services from registry using jq, filtering out frontend
   local services_to_env
@@ -405,6 +405,7 @@ write_runtime_env_files() {
     redis_url="$(grep '^REDIS_URL=' "$env_prod" | head -n 1 | cut -d= -f2- || echo "")"
     
     semver="$(jq -r '.version // "1.0.0"' "$sDir/package.json" 2>/dev/null || echo "1.0.0")"
+    db_schema="$(jq -r --arg name "$sName" '.[] | select(.name == $name) | .schema // empty' registry/services.json)"
     
     # Copy the whole env file first to retain all microservice-specific env keys
     cp "$env_prod" "$dest_env"
@@ -415,6 +416,9 @@ write_runtime_env_files() {
       echo "# --- Slot Overrides ---"
       if [[ -n "$db_url" ]]; then
         echo "DATABASE_URL=$(container_db_url "$db_url")"
+      fi
+      if [[ -n "$db_schema" ]]; then
+        echo "DB_SCHEMA=${db_schema}"
       fi
       if [[ -n "$redis_url" ]]; then
         echo "REDIS_URL=$(container_redis_url "$redis_url")"
