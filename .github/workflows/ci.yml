@@ -606,12 +606,24 @@ jobs:
             done
             echo " FAIL"; return 1
           }
+          wait_for_container_url() {
+            local service="$1" port="$2" name="$3" deadline=$((SECONDS + 180))
+            echo -n "  Waiting for $name..."
+            while (( SECONDS < deadline )); do
+              if docker compose -f crm-infra/docker-compose.yml --env-file crm-infra/.env.docker exec -T "$service" \
+                node -e "fetch('http://127.0.0.1:${port}/api/v1/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+                echo " OK"; return 0
+              fi
+              sleep 3
+            done
+            echo " FAIL"; return 1
+          }
 
           FAILED=0
-          wait_for_url "http://localhost:8080/health" "api-gateway" || FAILED=1
-          wait_for_url "http://localhost:3000/api/v1/health" "crm-auth" || FAILED=1
-          wait_for_url "http://localhost:3001/api/v1/health" "crm-collab" || FAILED=1
-          wait_for_url "http://localhost:3002/api/v1/health" "crm-media" || FAILED=1
+          wait_for_url "http://localhost:8080/api/v1/health" "api-gateway" || FAILED=1
+          wait_for_container_url "crm-auth" "3000" "crm-auth" || FAILED=1
+          wait_for_container_url "crm-collab" "3001" "crm-collab" || FAILED=1
+          wait_for_container_url "crm-media" "3002" "crm-media" || FAILED=1
           wait_for_url "http://localhost:80" "crm-frontend" || FAILED=1
 
           if (( FAILED )); then
