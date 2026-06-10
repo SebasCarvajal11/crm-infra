@@ -98,9 +98,9 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
 
       // Asignar workers
       await page.locator('button:has-text("Seleccionar...")').first().click()
-      await page.getByRole('option').nth(1).click()
+      await page.locator('[role="option"]:visible').nth(1).click()
       await page.locator('button:has-text("Seleccionar...")').first().click()
-      await page.getByRole('option').nth(1).click()
+      await page.locator('[role="option"]:visible').nth(1).click()
 
       // Subtarea 1
       await page.getByPlaceholder('Descripcion de la subtarea...').fill('Subtarea 1: Diseno')
