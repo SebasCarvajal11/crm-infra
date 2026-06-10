@@ -563,11 +563,11 @@ jobs:
           DB_SUPERUSER_URL: postgresql://root:rootpassword@localhost:5432/crm_database
         run: |
           # crm-auth: bootstrap + push + audit partition
-          (cd crm-auth && DB_SCHEMA=schema_auth pnpm db:bootstrap && DB_SCHEMA=schema_auth pnpm db:push && pnpm db:partition-audit-migrate)
+          (cd crm-auth && DB_SCHEMA=schema_auth pnpm db:bootstrap && DATABASE_URL=postgresql://auth_user:authpassword_ci@localhost:5432/crm_database DB_SCHEMA=schema_auth pnpm db:push && DATABASE_URL=postgresql://auth_user:authpassword_ci@localhost:5432/crm_database pnpm db:partition-audit-migrate)
           # crm-collab: bootstrap + push
-          (cd crm-collab && DB_SCHEMA=schema_collab pnpm db:bootstrap && DB_SCHEMA=schema_collab pnpm db:push)
+          (cd crm-collab && DB_SCHEMA=schema_collab pnpm db:bootstrap && DATABASE_URL=postgresql://collab_user:collabpassword_ci@localhost:5432/crm_database DB_SCHEMA=schema_collab pnpm db:push)
           # crm-media: bootstrap + push
-          (cd crm-media && DB_SCHEMA=schema_media pnpm db:bootstrap && DB_SCHEMA=schema_media pnpm db:push)
+          (cd crm-media && DB_SCHEMA=schema_media pnpm db:bootstrap && DATABASE_URL=postgresql://media_user:mediapassword_ci@localhost:5432/crm_database DB_SCHEMA=schema_media pnpm db:push)
 
       - name: Seed test data
         working-directory: ${{ github.workspace }}
