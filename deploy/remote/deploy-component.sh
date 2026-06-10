@@ -648,6 +648,11 @@ fi
 start_shared_platform
 wait_for_postgres
 
+set -a
+# shellcheck disable=SC1090
+source "$shared_env_file"
+set +a
+
 db_pass="${POSTGRES_PASSWORD:-rootpassword}"
 superuser_url=""
 db_port="${POSTGRES_HOST_PORT:-5432}"
