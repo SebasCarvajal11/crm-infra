@@ -470,15 +470,15 @@ jobs:
             echo "${{ secrets.OCI_PRIVATE_KEY }}" > /tmp/oci/oci_api_key.pem
             chmod 600 /tmp/oci/oci_api_key.pem
           else
-            # Dummy config — media will start but file operations will fail gracefully
-            cat > /tmp/oci/oci.config << 'OCIEOF'
-          [DEFAULT]
-          user=ocid1.user.oc1..placeholder
-          fingerprint=aa:bb:cc:dd:ee:ff:00:11:22:33
-          tenancy=ocid1.tenancy.oc1..placeholder
-            region=us-sanjose-1
-            key_file=/opt/cima/secrets/oci/oci_api_key.pem
-          OCIEOF
+            # Dummy config: media can start; real OCI calls fail gracefully in smoke.
+            {
+              echo "[DEFAULT]"
+              echo "user=ocid1.user.oc1..placeholder"
+              echo "fingerprint=aa:bb:cc:dd:ee:ff:00:11:22:33"
+              echo "tenancy=ocid1.tenancy.oc1..placeholder"
+              echo "region=us-sanjose-1"
+              echo "key_file=/opt/cima/secrets/oci/oci_api_key.pem"
+            } > /tmp/oci/oci.config
             openssl genrsa -out /tmp/oci/oci_api_key.pem 2048
             chmod 600 /tmp/oci/oci_api_key.pem
           fi
@@ -569,6 +569,8 @@ jobs:
           (cd crm-collab && DB_SCHEMA=schema_collab pnpm db:bootstrap && DATABASE_URL=postgresql://root:rootpassword@localhost:5432/crm_database DB_SCHEMA=schema_collab pnpm db:push && DB_SCHEMA=schema_collab pnpm db:bootstrap)
           # crm-media: bootstrap + push
           (cd crm-media && DB_SCHEMA=schema_media pnpm db:bootstrap && DATABASE_URL=postgresql://root:rootpassword@localhost:5432/crm_database DB_SCHEMA=schema_media pnpm db:push && DB_SCHEMA=schema_media pnpm db:bootstrap)
+          # Re-apply central grants/ownership after Drizzle creates or replaces objects as root.
+          (cd crm-infra && docker compose -f docker-compose.yml --env-file .env.docker exec -T postgres_db sh /docker-entrypoint-initdb.d/00-init-service-schemas.sh)
 
       - name: Seed test data
         working-directory: ${{ github.workspace }}
