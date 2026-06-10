@@ -381,7 +381,7 @@ wait_for_compose_services_running() {
 
 write_runtime_env_files() {
   local slot="$1"
-  local sName sDir env_prod dest_env db_url redis_url semver db_schema
+  local sName sDir env_prod dest_env db_url redis_url semver db_schema trust_gateway
   
   # Get all services from registry using jq, filtering out frontend
   local services_to_env
@@ -403,6 +403,7 @@ write_runtime_env_files() {
     
     db_url="$(grep '^DATABASE_URL=' "$env_prod" | head -n 1 | cut -d= -f2- || echo "")"
     redis_url="$(grep '^REDIS_URL=' "$env_prod" | head -n 1 | cut -d= -f2- || echo "")"
+    trust_gateway="$(grep '^TRUST_GATEWAY_JWT_HEADERS=' "$env_prod" | tail -n 1 | cut -d= -f2- || echo "")"
     
     semver="$(jq -r '.version // "1.0.0"' "$sDir/package.json" 2>/dev/null || echo "1.0.0")"
     db_schema="$(jq -r --arg name "$sName" '.[] | select(.name == $name) | .schema // empty' registry/services.json)"
@@ -423,7 +424,9 @@ write_runtime_env_files() {
       if [[ -n "$redis_url" ]]; then
         echo "REDIS_URL=$(container_redis_url "$redis_url")"
       fi
-      echo "TRUST_GATEWAY_JWT_HEADERS=false"
+      if [[ -z "$trust_gateway" ]] && grep -q '^GATEWAY_TRUST_SECRET=' "$env_prod"; then
+        echo "TRUST_GATEWAY_JWT_HEADERS=true"
+      fi
       echo "SERVICE_VERSION=${semver}"
     } >> "$dest_env"
   done
@@ -515,10 +518,15 @@ start_slot_web() {
 
 stop_slot_workers() {
   local slot="$1"
-  local project
+  local project gateway_port frontend_port
   project="$(slot_project "$slot")"
+  gateway_port="$(slot_gateway_port "$slot")"
+  frontend_port="$(slot_frontend_port "$slot")"
   if slot_has_project "$slot"; then
-    APP_SLOT="$slot" docker compose -p "$project" -f "$slot_compose" stop auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
+    APP_SLOT="$slot" \
+    GATEWAY_SLOT_HOST_PORT="$gateway_port" \
+    FRONTEND_SLOT_HOST_PORT="$frontend_port" \
+    docker compose -p "$project" -f "$slot_compose" stop auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
   fi
 }
 
