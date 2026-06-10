@@ -96,12 +96,6 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
       await taskDialog.locator('#ct-title').fill(taskTitle)
       await taskDialog.locator('#ct-desc').fill(`Detalle de la tarea smoke ${suffix}.`)
 
-      // Asignar workers
-      await page.locator('button:has-text("Seleccionar...")').first().click()
-      await page.locator('[role="option"]:visible').nth(1).click()
-      await page.locator('button:has-text("Seleccionar...")').first().click()
-      await page.locator('[role="option"]:visible').nth(1).click()
-
       // Subtarea 1
       await page.getByPlaceholder('Descripcion de la subtarea...').fill('Subtarea 1: Diseno')
       await page.getByPlaceholder('Descripcion de la subtarea...').press('Enter')
