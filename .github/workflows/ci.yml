@@ -364,6 +364,7 @@ jobs:
 
       # ── Prepare service .env files ──────────────────────────────
       - name: Generate JWT keys and service .env files
+        working-directory: ${{ github.workspace }}
         shell: bash
         run: |
           node -e "
@@ -483,6 +484,7 @@ jobs:
           fi
 
       - name: Prepare gateway build env
+        working-directory: ${{ github.workspace }}
         shell: bash
         run: |
           mkdir -p crm-infra/deploy/runtime
@@ -514,6 +516,7 @@ jobs:
           KRAKEND_ENDPOINTS_SOURCE: file
 
       - name: Wait for services to be healthy
+        working-directory: ${{ github.workspace }}
         shell: bash
         run: |
           wait_for_url() {
@@ -545,6 +548,7 @@ jobs:
 
       # ── Database Setup ──────────────────────────────────────────
       - name: Install service dependencies
+        working-directory: ${{ github.workspace }}
         shell: bash
         run: |
           for repo in crm-auth crm-collab crm-media; do
@@ -553,6 +557,7 @@ jobs:
           done
 
       - name: Run DB bootstrap and migrations
+        working-directory: ${{ github.workspace }}
         shell: bash
         env:
           DB_SUPERUSER_URL: postgresql://root:rootpassword@localhost:5432/crm_database
@@ -565,6 +570,7 @@ jobs:
           (cd crm-media && DB_SCHEMA=schema_media pnpm db:bootstrap && DB_SCHEMA=schema_media pnpm db:push)
 
       - name: Seed test data
+        working-directory: ${{ github.workspace }}
         shell: bash
         run: (cd crm-auth && pnpm db:seed)
 
