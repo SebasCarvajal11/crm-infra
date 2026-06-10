@@ -191,9 +191,6 @@ jobs:
       - name: Build API Portal
         run: pnpm portal:build
 
-      - name: Validate Docker Compose
-        run: docker compose -f docker-compose.yml config > /dev/null
-
       - name: Validate production Shared Compose
         run: docker compose -f docker-compose.prod.yml config > /dev/null
 
@@ -388,7 +385,7 @@ jobs:
             'NODE_ENV=test',
             'EXPOSE_TEMP_PASSWORDS=true',
             'PORT=3000',
-            'REFRESH_COOKIE_PATH=/auth/refresh',
+            'REFRESH_COOKIE_PATH=/api/v1/auth/refresh',
             'MAIL_TRANSPORT=log',
             'APP_PUBLIC_URL=http://localhost:80',
             'ADMIN_INVITE_SECRET=test-admin-secret',

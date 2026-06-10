@@ -70,7 +70,7 @@ jobs:
     env:
       DATABASE_URL: postgres://root:rootpassword@127.0.0.1:5432/crm_database
       REDIS_URL: redis://127.0.0.1:6379
-      DB_SCHEMA: ${{ inputs.db_schema }}
+      DB_SCHEMA: schema_${{ inputs.component }}
       NODE_ENV: test
       CIMA_GITHUB_TOKEN: ${{ secrets.CIMA_GITHUB_TOKEN }}
 
@@ -161,7 +161,7 @@ jobs:
             'NODE_ENV=test',
             'EXPOSE_TEMP_PASSWORDS=true',
             'PORT=3000',
-            'REFRESH_COOKIE_PATH=/auth/refresh',
+            'REFRESH_COOKIE_PATH=/api/v1/auth/refresh',
             'MAIL_TRANSPORT=log',
             'APP_PUBLIC_URL=http://localhost:5173',
             'ADMIN_INVITE_SECRET=test-admin-secret-123',
@@ -268,7 +268,7 @@ jobs:
         run: |
           echo "DATABASE_URL=postgres://root:rootpassword@127.0.0.1:5432/crm_database" > .env
           echo "REDIS_URL=redis://127.0.0.1:6379" >> .env
-          echo "DB_SCHEMA=${{ inputs.db_schema }}" >> .env
+          echo "DB_SCHEMA=schema_${{ inputs.component }}" >> .env
           echo "NODE_ENV=test" >> .env
 
       # ── Lint ──────────────────────────────────────────────────
