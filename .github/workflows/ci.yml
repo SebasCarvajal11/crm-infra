@@ -51,7 +51,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-auth
-          token: ${{ secrets.GITHUB_TOKEN_CIMA }}
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-auth
           sparse-checkout: |
             gateway
@@ -63,7 +63,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-collab
-          token: ${{ secrets.GITHUB_TOKEN_CIMA }}
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-collab
           sparse-checkout: |
             gateway
@@ -75,7 +75,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-media
-          token: ${{ secrets.GITHUB_TOKEN_CIMA }}
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-media
           sparse-checkout: |
             gateway
@@ -88,7 +88,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/cima-contracts
-          token: ${{ secrets.GITHUB_TOKEN_CIMA }}
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: cima-contracts
           sparse-checkout: |
             src
@@ -122,7 +122,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-frontend
-          token: ${{ secrets.GITHUB_TOKEN_CIMA }}
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-frontend
           sparse-checkout: |
             .env.production.example
@@ -309,35 +309,35 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-auth
-          token: ${{ secrets.GITHUB_TOKEN_CIMA }}
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-auth
 
       - name: Checkout crm-collab
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-collab
-          token: ${{ secrets.GITHUB_TOKEN_CIMA }}
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-collab
 
       - name: Checkout crm-media
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-media
-          token: ${{ secrets.GITHUB_TOKEN_CIMA }}
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-media
 
       - name: Checkout crm-frontend
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/crm-frontend
-          token: ${{ secrets.GITHUB_TOKEN_CIMA }}
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-frontend
 
       - name: Checkout cima-contracts
         uses: actions/checkout@v6
         with:
           repository: SebasCarvajal11/cima-contracts
-          token: ${{ secrets.GITHUB_TOKEN_CIMA }}
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: cima-contracts
           sparse-checkout: |
             src
