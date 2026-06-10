@@ -156,6 +156,7 @@ jobs:
           const esc = (pem) => JSON.stringify(pem.trimEnd());
           const lines = [
             'DATABASE_URL=postgres://root:rootpassword@127.0.0.1:5432/crm_database',
+            'DB_SCHEMA=schema_auth',
             'REDIS_URL=redis://127.0.0.1:6379',
             'NODE_ENV=test',
             'EXPOSE_TEMP_PASSWORDS=true',
@@ -167,6 +168,78 @@ jobs:
             \`JWT_PRIVATE_KEY=\${esc(privateKey)}\`,
             \`JWT_PUBLIC_KEY=\${esc(publicKey)}\`,
             'JWT_KID=mod-auth-rsa-1',
+          ];
+          fs.writeFileSync('.env', lines.join('\n') + '\n');
+          "
+
+      - name: Create CI env file for Collab
+        if: ${{ inputs.component == 'collab' && inputs.language == 'typescript' }}
+        shell: bash
+        run: |
+          node -e "
+          const fs = require('node:fs');
+          const { generateKeyPairSync } = require('node:crypto');
+          const { privateKey, publicKey } = generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { type: 'spki', format: 'pem' },
+            privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+          });
+          const esc = (pem) => JSON.stringify(pem.trimEnd());
+          const lines = [
+            'DATABASE_URL=postgres://root:rootpassword@127.0.0.1:5432/crm_database',
+            'DB_SCHEMA=schema_collab',
+            'REDIS_URL=redis://127.0.0.1:6379',
+            'NODE_ENV=test',
+            'PORT=3001',
+            'TRUST_GATEWAY_JWT_HEADERS=true',
+            \`SERVICE_JWT_PRIVATE_KEY=\${esc(privateKey)}\`,
+            \`SERVICE_JWT_PUBLIC_KEY=\${esc(publicKey)}\`,
+            'SERVICE_JWT_KID=collab-service-rsa-1',
+          ];
+          fs.writeFileSync('.env', lines.join('\n') + '\n');
+          "
+
+      - name: Create CI env file for Media
+        if: ${{ inputs.component == 'media' && inputs.language == 'typescript' }}
+        shell: bash
+        run: |
+          node -e "
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const { generateKeyPairSync } = require('node:crypto');
+          const { privateKey } = generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { type: 'spki', format: 'pem' },
+            privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+          });
+          const ociDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cima-oci-'));
+          const keyPath = path.join(ociDir, 'oci_api_key.pem');
+          const configPath = path.join(ociDir, 'oci.config');
+          fs.writeFileSync(keyPath, privateKey);
+          fs.writeFileSync(configPath, [
+            '[DEFAULT]',
+            'user=ocid1.user.oc1..placeholder',
+            'fingerprint=aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99',
+            'tenancy=ocid1.tenancy.oc1..placeholder',
+            'region=us-sanjose-1',
+            \`key_file=\${keyPath}\`,
+          ].join('\\n') + '\\n');
+          const lines = [
+            'DATABASE_URL=postgres://root:rootpassword@127.0.0.1:5432/crm_database',
+            'DB_SCHEMA=schema_media',
+            'NODE_ENV=test',
+            'PORT=3002',
+            'TRUST_GATEWAY_JWT_HEADERS=true',
+            'OCI_CONFIG_FILE_PATH=' + configPath,
+            'OCI_CONFIG_PROFILE=DEFAULT',
+            'OCI_REGION=us-sanjose-1',
+            'OCI_NAMESPACE=placeholder',
+            'OCI_BUCKET_AVATARS_PUBLIC=crm-avatars-public',
+            'OCI_BUCKET_DOCS_PRIVATE=crm-docs-private',
+            'CLAMAV_HOST=127.0.0.1',
+            'CLAMAV_PORT=3310',
+            'MOD_COLLAB_URL=http://127.0.0.1:3001',
           ];
           fs.writeFileSync('.env', lines.join('\n') + '\n');
           "

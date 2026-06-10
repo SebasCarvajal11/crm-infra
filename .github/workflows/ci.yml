@@ -56,7 +56,7 @@ jobs:
           sparse-checkout: |
             gateway
             openapi
-            .env.production.example
+            .env.example
           sparse-checkout-cone-mode: false
 
       - name: Checkout collab gateway config
@@ -68,7 +68,7 @@ jobs:
           sparse-checkout: |
             gateway
             openapi
-            .env.production.example
+            .env.example
           sparse-checkout-cone-mode: false
 
       - name: Checkout media gateway config
@@ -80,7 +80,7 @@ jobs:
           sparse-checkout: |
             gateway
             openapi
-            .env.production.example
+            .env.example
           sparse-checkout-cone-mode: false
 
 
@@ -125,20 +125,20 @@ jobs:
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-frontend
           sparse-checkout: |
-            .env.production.example
+            .env.example
           sparse-checkout-cone-mode: false
 
       - name: Prepare production env files
         shell: bash
         run: |
-          cp .env.production.example .env.production
-          cp ../crm-auth/.env.production.example ../crm-auth/.env.production
-          cp ../crm-collab/.env.production.example ../crm-collab/.env.production
-          cp ../crm-media/.env.production.example ../crm-media/.env.production
-          cp ../crm-frontend/.env.production.example ../crm-frontend/.env.production
-          cp ../crm-auth/.env.production.example ../crm-auth/.env
-          cp ../crm-collab/.env.production.example ../crm-collab/.env
-          cp ../crm-media/.env.production.example ../crm-media/.env
+          cp .env.example .env.production
+          cp ../crm-auth/.env.example ../crm-auth/.env.production
+          cp ../crm-collab/.env.example ../crm-collab/.env.production
+          cp ../crm-media/.env.example ../crm-media/.env.production
+          cp ../crm-frontend/.env.example ../crm-frontend/.env.production
+          cp ../crm-auth/.env.example ../crm-auth/.env
+          cp ../crm-collab/.env.example ../crm-collab/.env
+          cp ../crm-media/.env.example ../crm-media/.env
           mkdir -p deploy/runtime
           cat > deploy/runtime/edge.conf <<'EOF'
           server {
