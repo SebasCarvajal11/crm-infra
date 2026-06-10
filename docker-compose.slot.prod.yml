@@ -3,6 +3,10 @@ services:
   auth:
     build:
       context: ../crm-auth
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
     restart: always
     env_file:
       - ../crm-auth/.env.production
@@ -17,6 +21,10 @@ services:
   auth-email-worker:
     build:
       context: ../crm-auth
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
     restart: always
     command:
       - pnpm
@@ -37,6 +45,10 @@ services:
   auth-identity-outbox-worker:
     build:
       context: ../crm-auth
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
     restart: always
     command:
       - pnpm
@@ -57,6 +69,10 @@ services:
   auth-token-cleanup-worker:
     build:
       context: ../crm-auth
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
     restart: always
     command:
       - pnpm
@@ -77,6 +93,10 @@ services:
   collab:
     build:
       context: ../crm-collab
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
     restart: always
     env_file:
       - ../crm-collab/.env.production
@@ -91,6 +111,10 @@ services:
   collab-outbox-worker:
     build:
       context: ../crm-collab
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
     restart: always
     command:
       - pnpm
@@ -111,6 +135,10 @@ services:
   media:
     build:
       context: ../crm-media
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
     restart: always
     env_file:
       - ../crm-media/.env.production
@@ -125,6 +153,10 @@ services:
   media-command-worker:
     build:
       context: ../crm-media
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
     restart: always
     command:
       - pnpm
@@ -145,6 +177,10 @@ services:
   media-quarantine-scan-worker:
     build:
       context: ../crm-media
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
     restart: always
     command:
       - pnpm
@@ -165,6 +201,10 @@ services:
   frontend:
     build:
       context: ../crm-frontend
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        NGINX_IMAGE: ${NGINX_IMAGE:-nginx:1.27-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
     restart: always
     ports:
       - 127.0.0.1:${FRONTEND_SLOT_HOST_PORT:?FRONTEND_SLOT_HOST_PORT is required}:80
@@ -174,7 +214,7 @@ services:
     networks:
       - default
   api-gateway:
-    image: krakend:latest
+    image: ${KRAKEND_IMAGE:-devopsfaith/krakend:2.9}
     restart: always
     ports:
       - 127.0.0.1:${GATEWAY_SLOT_HOST_PORT:?GATEWAY_SLOT_HOST_PORT is required}:8080

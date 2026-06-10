@@ -6,6 +6,10 @@ on:
       component:
         required: true
         type: string
+      language:
+        required: false
+        type: string
+        default: "typescript"
       runs_db:
         required: false
         type: boolean
@@ -21,7 +25,7 @@ on:
       test_command:
         required: false
         type: string
-        default: "pnpm test:unit"
+        default: ""
       install_hurl:
         required: false
         type: boolean
@@ -41,7 +45,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: root
           POSTGRES_PASSWORD: rootpassword
@@ -79,20 +83,54 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── TypeScript Setup ──────────────────────────────────────
       - name: Setup pnpm
+        if: inputs.language == 'typescript'
         uses: pnpm/action-setup@v6
         with:
           version: 11.1.1
 
       - name: Setup Node.js
+        if: inputs.language == 'typescript'
         uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
 
-      - name: Install dependencies
+      # ── Java Setup ────────────────────────────────────────────
+      - name: Setup Java
+        if: inputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      # ── Install Dependencies ──────────────────────────────────
+      - name: Install dependencies (TypeScript)
+        if: inputs.language == 'typescript'
         run: pnpm install --frozen-lockfile
 
+      - name: Install dependencies (Java)
+        if: inputs.language == 'java'
+        run: ./gradlew dependencies --no-daemon
+
+      # ── Security Scans ────────────────────────────────────────
+      - name: Audit dependencies for vulnerabilities
+        if: ${{ !inputs.is_frontend && inputs.language == 'typescript' }}
+        run: pnpm audit --audit-level high || true
+        continue-on-error: true
+
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      # ── Hurl (contract tests) ─────────────────────────────────
       - name: Install Hurl
         if: ${{ inputs.install_hurl }}
         shell: bash
@@ -102,8 +140,9 @@ jobs:
           curl --location --remote-name "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl_${HURL_VERSION}_amd64.deb"
           sudo apt-get install -y "./hurl_${HURL_VERSION}_amd64.deb"
 
+      # ── Environment Files ─────────────────────────────────────
       - name: Create CI env file for Auth
-        if: ${{ inputs.component == 'auth' }}
+        if: ${{ inputs.component == 'auth' && inputs.language == 'typescript' }}
         shell: bash
         run: |
           node -e "
@@ -132,6 +171,24 @@ jobs:
           fs.writeFileSync('.env', lines.join('\n') + '\n');
           "
 
+      - name: Create CI env file for Auth (Java)
+        if: ${{ inputs.component == 'auth' && inputs.language == 'java' }}
+        shell: bash
+        run: |
+          openssl genrsa -out private.pem 2048
+          openssl rsa -in private.pem -pubout -out public.pem
+          PRIVATE_KEY=$(cat private.pem | sed ':a;N;$!ba;s/\n/\\n/g')
+          PUBLIC_KEY=$(cat public.pem | sed ':a;N;$!ba;s/\n/\\n/g')
+          cat > .env << EOF
+          DATABASE_URL=postgres://root:rootpassword@127.0.0.1:5432/crm_database
+          REDIS_URL=redis://127.0.0.1:6379
+          SPRING_PROFILES_ACTIVE=test
+          SERVER_PORT=3000
+          JWT_PRIVATE_KEY=${PRIVATE_KEY}
+          JWT_PUBLIC_KEY=${PUBLIC_KEY}
+          JWT_KID=mod-auth-rsa-1
+          EOF
+
       - name: Create generic CI env file
         if: ${{ inputs.runs_db && inputs.component != 'auth' }}
         shell: bash
@@ -141,27 +198,68 @@ jobs:
           echo "DB_SCHEMA=${{ inputs.db_schema }}" >> .env
           echo "NODE_ENV=test" >> .env
 
-      - name: Lint
-        if: ${{ inputs.is_frontend }}
+      # ── Lint ──────────────────────────────────────────────────
+      - name: Lint (TypeScript)
+        if: ${{ inputs.is_frontend && inputs.language == 'typescript' }}
         run: pnpm lint
 
-      - name: Build
+      # ── Build ─────────────────────────────────────────────────
+      - name: Build (TypeScript)
+        if: inputs.language == 'typescript'
         run: pnpm build
 
+      - name: Build (Java)
+        if: inputs.language == 'java'
+        run: ./gradlew build -x test --no-daemon
+
+      # ── Validations ───────────────────────────────────────────
       - name: Validate gateway manifest
-        if: ${{ !inputs.is_frontend }}
+        if: ${{ !inputs.is_frontend && inputs.language == 'typescript' }}
         run: pnpm gateway:validate
 
       - name: Validate OpenAPI contract
-        if: ${{ !inputs.is_frontend }}
+        if: ${{ !inputs.is_frontend && inputs.language == 'typescript' }}
         run: pnpm openapi:check
 
-      - name: Prepare schema
-        if: ${{ inputs.runs_db }}
+      - name: Prepare schema (TypeScript)
+        if: ${{ inputs.runs_db && inputs.language == 'typescript' }}
         run: pnpm db:push
 
-      - name: Run test suite
-        run: ${{ inputs.test_command }}
+      - name: Prepare schema (Java)
+        if: ${{ inputs.runs_db && inputs.language == 'java' }}
+        run: ./gradlew flywayMigrate --no-daemon
 
+      # ── Tests ─────────────────────────────────────────────────
+      - name: Run test suite (TypeScript)
+        if: inputs.language == 'typescript'
+        run: ${{ inputs.test_command || 'pnpm test:unit' }}
+
+      - name: Run test suite (Java)
+        if: inputs.language == 'java'
+        run: ${{ inputs.test_command || './gradlew test --no-daemon' }}
+
+      # ── Docker Build & Scan ───────────────────────────────────
       - name: Build production image
         run: docker build -t crm-${{ inputs.component }}:ci .
+
+      - name: Run Trivy vulnerability scanner (Docker image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'crm-${{ inputs.component }}:ci'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: 'crm-${{ inputs.component }}:ci'
+          format: 'spdx-json'
+          output-file: 'sbom-${{ inputs.component }}.spdx.json'
+
+      - name: Upload SBOM as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ inputs.component }}
+          path: sbom-${{ inputs.component }}.spdx.json
+          retention-days: 90

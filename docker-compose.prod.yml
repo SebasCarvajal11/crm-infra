@@ -39,7 +39,7 @@ services:
       retries: 10
 
   clamav-scanner:
-    image: clamav/clamav-debian:latest
+    image: clamav/clamav-debian:1.4
     restart: always
     ports:
       - "127.0.0.1:${CLAMAV_HOST_PORT:-3310}:3310"

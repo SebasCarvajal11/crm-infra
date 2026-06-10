@@ -80,12 +80,12 @@ El sistema está diseñado bajo el principio de aislamiento de fallos: cada serv
 | Componente Caído | Impacto en el Usuario / Sistema | Estrategia de Mitigación |
 |------------------|---------------------------------|--------------------------|
 | **crm-auth** | No es posible iniciar sesión. Las peticiones autenticadas fallan inmediatamente con `401 Unauthorized` limpio. | Los servicios backend validan JWTs localmente (usando JWKS con caché). Si `crm-auth` cae, las sesiones existentes siguen activas hasta que expire el JWT o sea necesario consultar el JWKS refrescado. |
-| **crm-collab** | Se deshabilitan las funcionalidades de proyectos, tareas y chat. | `crm-auth` y `crm-media` siguen funcionando. El frontend detecta el fallo del endpoint `/health` de `collab` a través del gateway y muestra un banner de advertencia ("Servicio de colaboración no disponible temporalmente"). |
+| **crm-collab** | Se deshabilitan las funcionalidades de proyectos, tareas y chat. | `crm-auth` y `crm-media` siguen funcionando. El frontend detecta el fallo del endpoint `/api/v1/health` de `collab` a través del gateway y muestra un banner de advertencia ("Servicio de colaboración no disponible temporalmente"). |
 | **crm-media** | No se pueden subir nuevos archivos ni procesar metadatos en tiempo real. | `crm-collab` encola las solicitudes en la base de datos local marcando las operaciones como `pending-media-upload` y activa reintentos con backoff exponencial. Cuando `crm-media` vuelve a estar online, procesa la cola de comandos asíncronos pendientes. |
 | **Redis** | Las tareas en background, colas de eventos (outbox) y mensajería en tiempo real quedan inoperativas. | Los servicios degradan a un modo de operación limitado (modo lectura o deshabilitan las escrituras que requieran eventos de sincronización inmediatos) y responden con `503 Service Unavailable` explícito si se intenta una acción crítica dependiente de Redis. |
 
 > [!NOTE]
-> Todos los backend implementan una ruta `/health` estandarizada que reporta el estado de sus dependencias (base de datos, redis, etc.) en formato JSON. El API Gateway (KrakenD) monitorea esta ruta y activa disyuntores (circuit-breakers) automáticos con parámetros `max_errors`, `interval` y `timeout` configurados en `registry/services.json`.
+> Todos los backend implementan una ruta `/api/v1/health` estandarizada que reporta el estado de sus dependencias (base de datos, redis, etc.) en formato JSON. El API Gateway (KrakenD) monitorea esta ruta y activa disyuntores (circuit-breakers) automáticos con parámetros `max_errors`, `interval` y `timeout` configurados en `registry/services.json`.
 
 ---
 
@@ -112,9 +112,9 @@ Al entrar a Grafana, ir a **Dashboards → CIMA CRM — Overview**. Incluye:
 - **Node.js** — heap usado, event loop lag.
 - **Logs en tiempo real** — panel Loki con filtro por servicio y texto libre.
 
-### Métricas disponibles (endpoint `/metrics`)
+### Métricas disponibles (endpoint `/api/v1/metrics`)
 
-Cada servicio backend expone `GET /metrics` en formato Prometheus text/plain:
+Cada servicio backend expone `GET /api/v1/metrics` en formato Prometheus text/plain:
 
 | Métrica | Tipo | Descripción |
 |---------|------|-------------|
@@ -211,5 +211,4 @@ Cada repo tiene un `renovate.json` configurado para:
 - Agrupar actualizaciones relacionadas (Docker images, GitHub Actions, frontend-core)
 
 Los PRs de Renovate se etiquetan con `dependencies` y se mergean automáticamente si pasan CI.
-
 

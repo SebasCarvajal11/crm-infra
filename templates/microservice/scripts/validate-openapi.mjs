@@ -57,7 +57,7 @@ if (!parsed.info?.version) {
 }
 
 if (!parsed.paths?.["health"]) {
-  console.warn(`⚠️  OpenAPI spec does not define /health path`);
+  console.warn(`⚠️  OpenAPI spec does not define /api/v1/health path`);
 }
 
 console.log(`\n✅ openapi.yaml is valid`);

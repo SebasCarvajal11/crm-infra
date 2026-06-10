@@ -1,0 +1,13 @@
+{
+  "service": "{{SERVICE_NAME}}",
+  "version": "1",
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/{{SERVICE_NAME}}/health",
+      "method": "GET",
+      "public": true,
+      "backend_url": "/actuator/health",
+      "openapi_ref": "GET /actuator/health"
+    }
+  ]
+}

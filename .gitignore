@@ -36,6 +36,7 @@ out/
 *.key
 cookies.jar
 security/sops/keys.txt
+.oci-config/
 
 # Logs
 logs/

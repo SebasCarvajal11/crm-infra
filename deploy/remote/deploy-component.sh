@@ -30,7 +30,7 @@ require_env() {
   fi
 }
 
-for cmd in git docker pnpm node flock curl grep cut cat mkdir rm cp; do
+for cmd in git docker jq flock curl grep cut cat mkdir rm cp; do
   require_command "$cmd"
 done
 
@@ -42,6 +42,7 @@ runtime_dir="$stack_dir/deploy/runtime"
 active_slot_file="$base_dir/.active-slot"
 shared_project="crm-shared"
 shared_compose="$stack_dir/docker-compose.prod.yml"
+shared_env_file="$stack_dir/.env.production"
 slot_compose="$stack_dir/docker-compose.slot.prod.yml"
 public_port="${FRONTEND_HOST_PORT:-80}"
 legacy_project="crm-infra"
@@ -168,6 +169,22 @@ run_in_repo() {
   )
 }
 
+shared_compose_cmd() {
+  if [[ ! -f "$shared_env_file" ]]; then
+    echo "Missing shared environment file: $shared_env_file" >&2
+    exit 1
+  fi
+
+  (
+    cd "$stack_dir"
+    set -a
+    # shellcheck disable=SC1090
+    source "$shared_env_file"
+    set +a
+    docker compose -p "$shared_project" --env-file "$shared_env_file" -f "$shared_compose" "$@"
+  )
+}
+
 with_dotenv() {
   local path="$1"
   local env_file="$2"
@@ -219,7 +236,7 @@ container_redis_url() {
 }
 
 dump_logs() {
-  docker compose -p "$shared_project" -f "$shared_compose" ps || true
+  shared_compose_cmd ps || true
   if [[ -n "$target_slot" ]]; then
     APP_SLOT="$target_slot" \
     GATEWAY_SLOT_HOST_PORT="$(slot_gateway_port "$target_slot")" \
@@ -285,8 +302,8 @@ activate_edge_slot() {
   local slot_front_port
   slot_front_port="$(slot_frontend_port "$slot")"
   render_edge_config "$slot_front_port"
-  docker compose -p "$shared_project" -f "$shared_compose" up -d edge-proxy >/dev/null
-  docker compose -p "$shared_project" -f "$shared_compose" exec -T edge-proxy nginx -s reload >/dev/null
+  shared_compose_cmd up -d edge-proxy >/dev/null
+  shared_compose_cmd exec -T edge-proxy nginx -s reload >/dev/null
 }
 
 wait_for_http_ok() {
@@ -314,7 +331,7 @@ verify_schema_version() {
   
   echo "Checking database schema version for ${comp}..."
   local db_version
-  db_version="$(docker compose -p "$shared_project" -f "$shared_compose" exec -T postgres_db psql -U "${POSTGRES_USER:-root}" -d "${POSTGRES_DB:-crm_database}" -t -A -c "SELECT version FROM ${schema}.schema_version ORDER BY id DESC LIMIT 1;" 2>/dev/null | tr -d '[:space:]' || echo "unknown")"
+  db_version="$(shared_compose_cmd exec -T postgres_db psql -U "${POSTGRES_USER:-root}" -d "${POSTGRES_DB:-crm_database}" -t -A -c "SELECT version FROM ${schema}.schema_version ORDER BY id DESC LIMIT 1;" 2>/dev/null | tr -d '[:space:]' || echo "unknown")"
   
   echo "  Expected version: ${expected_version}"
   echo "  Database version: ${db_version}"
@@ -365,12 +382,9 @@ write_runtime_env_files() {
   local slot="$1"
   local sName sDir env_prod dest_env db_url redis_url semver
   
-  # Get all services from registry using Node, filtering out frontend
+  # Get all services from registry using jq, filtering out frontend
   local services_to_env
-  services_to_env=$(node -e '
-    const svcs = JSON.parse(require("fs").readFileSync("registry/services.json", "utf8"));
-    console.log(svcs.filter(s => s.name !== "frontend").map(s => s.name).join(" "));
-  ')
+  services_to_env=$(jq -r '.[] | select(.name != "frontend") | .name' registry/services.json)
 
   for sName in $services_to_env; do
     sDir="$(repo_path "crm-${sName}")"
@@ -389,7 +403,7 @@ write_runtime_env_files() {
     db_url="$(grep '^DATABASE_URL=' "$env_prod" | head -n 1 | cut -d= -f2- || echo "")"
     redis_url="$(grep '^REDIS_URL=' "$env_prod" | head -n 1 | cut -d= -f2- || echo "")"
     
-    semver="$(node -p "require('$sDir/package.json').version" 2>/dev/null || echo "1.0.0")"
+    semver="$(jq -r '.version // "1.0.0"' "$sDir/package.json" 2>/dev/null || echo "1.0.0")"
     
     # Copy the whole env file first to retain all microservice-specific env keys
     cp "$env_prod" "$dest_env"
@@ -412,7 +426,7 @@ write_runtime_env_files() {
 
 start_shared_platform() {
   ensure_shared_docker_primitives
-  docker compose -p "$shared_project" -f "$shared_compose" up -d postgres_db redis clamav-scanner edge-proxy
+  shared_compose_cmd up -d postgres_db redis clamav-scanner edge-proxy
 }
 
 wait_for_postgres() {
@@ -428,7 +442,7 @@ wait_for_postgres() {
       # shellcheck disable=SC1090
       source "$stack_dir/.env.production" &&
       set +a &&
-      docker compose -p "$shared_project" -f "$shared_compose" exec -T postgres_db pg_isready -U "$user" -d "$db" >/dev/null 2>&1
+      shared_compose_cmd exec -T postgres_db pg_isready -U "$user" -d "$db" >/dev/null 2>&1
     ); then
       return 0
     fi
@@ -491,7 +505,7 @@ start_slot_web() {
   fi
 
   wait_for_http_ok "slot-${slot}-frontend" "http://127.0.0.1:${frontend_port}/"
-  wait_for_http_ok "slot-${slot}-gateway" "http://127.0.0.1:${gateway_port}/health"
+  wait_for_http_ok "slot-${slot}-gateway" "http://127.0.0.1:${gateway_port}/api/v1/health"
 }
 
 stop_slot_workers() {
@@ -548,12 +562,7 @@ rollback_if_needed() {
 trap rollback_if_needed ERR
 
 # Define service directories dynamically and upper-cased names
-all_services="$(node -e '
-  const svcs = JSON.parse(require("fs").readFileSync("registry/services.json", "utf8"));
-  svcs.forEach(s => {
-    console.log(`${s.name}|crm-${s.name}`);
-  });
-')"
+all_services="$(jq -r '.[] | "\(.name)|crm-\(.name)"' registry/services.json)"
 
 for svc_info in $all_services; do
   sName="$(echo "$svc_info" | cut -d'|' -f1)"
@@ -645,13 +654,7 @@ db_user="${POSTGRES_USER:-root}"
 superuser_url="postgresql://${db_user}:${db_pass}@127.0.0.1:${db_port}/${POSTGRES_DB:-crm_database}"
 
 # Get database services from registry to run migrations/bootstraps dynamically
-db_services="$(node -e '
-  const svcs = JSON.parse(require("fs").readFileSync("registry/services.json", "utf8"));
-  const dbSvcs = svcs.filter(s => s.schema && s.dbMigrateScript);
-  dbSvcs.forEach(s => {
-    console.log(`${s.name}|crm-${s.name}|${s.schema}|${s.dbInitScript}|${s.dbMigrateScript}`);
-  });
-')"
+db_services="$(jq -r '.[] | select(.schema and .dbMigrateScript) | "\(.name)|crm-\(.name)|\(.schema)|\(.dbInitScript // "")|\(.dbMigrateScript // "")"' registry/services.json)"
 
 for svc_info in $db_services; do
   sName="$(echo "$svc_info" | cut -d'|' -f1)"
@@ -664,13 +667,31 @@ for svc_info in $db_services; do
   
   if [[ "$component" == "$sName" || "$component" == "full" ]]; then
     echo "Running migrations for $sName in $sDir..."
-    run_in_repo "$sDir" pnpm install --frozen-lockfile
+    sLanguage=$(jq -r ".[] | select(.name==\"$sName\") | .language // \"typescript\"" registry/services.json)
+    sInstallCmd=$(jq -r ".[] | select(.name==\"$sName\") | .installCommand // \"\"" registry/services.json)
+
+    # Install dependencies based on language
+    if [[ "$sLanguage" == "typescript" ]]; then
+      run_in_repo "$sDir" pnpm install --frozen-lockfile
+    elif [[ "$sLanguage" == "java" ]]; then
+      if [[ -n "$sInstallCmd" ]]; then
+        run_in_repo "$sDir" bash -c "$sInstallCmd"
+      fi
+    fi
+
     s_db_url="$(grep '^DATABASE_URL=' "$sDir/.env.production" | cut -d= -f2- || echo "")"
     if [[ -z "$s_db_url" ]]; then
       s_db_url="$(grep '^DATABASE_URL=' "$sDir/.env.example" | cut -d= -f2- || echo "")"
     fi
-    with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" pnpm "$sInit"
-    with_dotenv "$sDir" "$sDir/.env.production" env DATABASE_URL="$(host_db_url "$s_db_url")" pnpm "$sMigrate"
+
+    # Run init script based on language
+    if [[ "$sLanguage" == "typescript" ]]; then
+      with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" pnpm "$sInit"
+      with_dotenv "$sDir" "$sDir/.env.production" env DATABASE_URL="$(host_db_url "$s_db_url")" pnpm "$sMigrate"
+    elif [[ "$sLanguage" == "java" ]]; then
+      with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" ./gradlew "$sInit" --no-daemon
+      with_dotenv "$sDir" "$sDir/.env.production" env DATABASE_URL="$(host_db_url "$s_db_url")" ./gradlew "$sMigrate" --no-daemon
+    fi
   fi
 done
 
@@ -679,7 +700,7 @@ activate_edge_slot "$target_slot"
 cutover_completed="true"
 
 wait_for_http_ok "public-frontend" "http://127.0.0.1:${public_port}/"
-wait_for_http_ok "public-api" "http://127.0.0.1:${public_port}/api/health"
+wait_for_http_ok "public-api" "http://127.0.0.1:${public_port}/api/v1/health"
 
 for svc_info in $db_services; do
   sName="$(echo "$svc_info" | cut -d'|' -f1)"
@@ -709,7 +730,14 @@ printf '%s\n' "$target_slot" > "$active_slot_file"
     sDir="${!sDirVar}"
     sVer="${!sVerVar}"
     
-    sSemver="$(node -p "require('$sDir/package.json').version" 2>/dev/null || echo "1.0.0")"
+    sLanguage=$(jq -r ".[] | select(.name==\"$sName\") | .language // \"typescript\"" registry/services.json)
+    if [[ "$sLanguage" == "typescript" ]]; then
+      sSemver="$(jq -r '.version // "1.0.0"' "$sDir/package.json" 2>/dev/null || echo "1.0.0")"
+    elif [[ "$sLanguage" == "java" ]]; then
+      sSemver="$(grep -oP 'version\s*=\s*\K[^\s]+' "$sDir/gradle.properties" 2>/dev/null || echo "1.0.0")"
+    else
+      sSemver="1.0.0"
+    fi
     echo "${sName}=${sSemver}@${sVer}"
   done
 } > "$(version_file "$target_slot")"

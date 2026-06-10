@@ -1,86 +1,114 @@
 #!/usr/bin/env node
 /**
- * validate-manifest.mjs — Validates gateway.manifest.json against the schema.
+ * validate-manifest.mjs — Validates gateway.manifest.json against the schema from cima-contracts.
+ *
+ * Usage:
+ *   node scripts/validate-manifest.mjs [--openapi path/to/openapi.yaml]
+ *
+ * If --openapi is provided, cross-validates that every openapi_ref in the manifest
+ * points to an existing method+path in the OpenAPI spec.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GatewayManifestSchema } from "@sebascarvajal11/cima-contracts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 
-function fail(msg) {
-  console.error(`\n❌ Manifest validation failed: ${msg}\n`);
+// Parse optional --openapi flag
+const args = process.argv.slice(2);
+let openapiPath = null;
+const openapiIdx = args.indexOf("--openapi");
+if (openapiIdx !== -1 && args[openapiIdx + 1]) {
+  openapiPath = resolve(ROOT, args[openapiIdx + 1]);
+}
+
+const manifestPath = resolve(ROOT, "gateway", "gateway.manifest.json");
+
+if (!existsSync(manifestPath)) {
+  console.error(`Error: Manifest file not found at ${manifestPath}`);
   process.exit(1);
 }
 
-function warn(msg) {
-  console.warn(`⚠️  ${msg}`);
-}
-
-let manifest;
 try {
-  const raw = readFileSync(resolve(ROOT, "gateway", "gateway.manifest.json"), "utf-8");
-  manifest = JSON.parse(raw);
-} catch (e) {
-  fail(`Could not read gateway/gateway.manifest.json: ${e.message}`);
-}
+  const manifestRaw = readFileSync(manifestPath, "utf-8");
+  const manifest = JSON.parse(manifestRaw);
 
-if (!manifest.service || typeof manifest.service !== "string") {
-  fail("manifest.service must be a non-empty string");
-}
-
-if (!manifest.version || typeof manifest.version !== "string") {
-  fail("manifest.version must be a non-empty string");
-}
-
-const allEndpoints = [
-  ...(manifest.public_endpoints ?? []),
-  ...(manifest.authenticated_endpoints ?? []),
-];
-
-if (allEndpoints.length === 0) {
-  fail("Manifest must have at least one endpoint in public_endpoints or authenticated_endpoints");
-}
-
-const VALID_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
-const seenEndpoints = new Set();
-
-for (const ep of allEndpoints) {
-  if (!ep.endpoint || typeof ep.endpoint !== "string") {
-    fail(`Endpoint missing or invalid 'endpoint' field: ${JSON.stringify(ep)}`);
+  // Validate manifest against Zod schema from cima-contracts
+  const parsed = GatewayManifestSchema.safeParse(manifest);
+  if (!parsed.success) {
+    console.error("Error: Manifest does not match GatewayManifestSchema:");
+    console.error(JSON.stringify(parsed.error.format(), null, 2));
+    process.exit(1);
   }
 
-  if (!ep.method || !VALID_METHODS.includes(ep.method)) {
-    fail(`Endpoint ${ep.endpoint}: invalid method '${ep.method}'`);
-  }
+  let hasErrors = false;
 
-  const key = `${ep.method}:${ep.endpoint}`;
-  if (seenEndpoints.has(key)) {
-    fail(`Duplicate endpoint: ${key}`);
-  }
-  seenEndpoints.add(key);
+  // If --openapi is provided, cross-validate openapi_ref
+  if (openapiPath) {
+    if (!existsSync(openapiPath)) {
+      console.error(`Error: OpenAPI file not found at ${openapiPath}`);
+      process.exit(1);
+    }
 
-  if (ep.rate_limit !== undefined) {
-    if (typeof ep.rate_limit.max_rate !== "number") {
-      fail(`Endpoint ${key}: rate_limit.max_rate must be a number`);
+    const YAML = await import("yaml");
+    const openapiRaw = readFileSync(openapiPath, "utf-8");
+    const openapi = YAML.parse(openapiRaw);
+
+    for (const ep of manifest.endpoints) {
+      const { endpoint, method, openapi_ref } = ep;
+      if (!openapi_ref) {
+        console.error(`Error: Endpoint "${method} ${endpoint}" is missing "openapi_ref"`);
+        hasErrors = true;
+        continue;
+      }
+
+      const parts = openapi_ref.split(" ");
+      if (parts.length !== 2) {
+        console.error(`Error: Invalid openapi_ref format "${openapi_ref}" for endpoint "${method} ${endpoint}". Expected format: "METHOD PATH"`);
+        hasErrors = true;
+        continue;
+      }
+
+      const [refMethod, refPath] = parts;
+      let pathObj = openapi.paths?.[refPath];
+      if (!pathObj) {
+        pathObj = openapi.paths?.[refPath.endsWith("/") ? refPath.slice(0, -1) : refPath + "/"];
+      }
+
+      if (!pathObj) {
+        console.error(`Error: Path "${refPath}" referenced by "${method} ${endpoint}" was not found in openapi.yaml`);
+        hasErrors = true;
+        continue;
+      }
+
+      const methodObj = pathObj[refMethod.toLowerCase()];
+      if (!methodObj) {
+        console.error(`Error: Method "${refMethod}" under path "${refPath}" referenced by "${method} ${endpoint}" was not found in openapi.yaml`);
+        hasErrors = true;
+        continue;
+      }
     }
   }
 
-  if (ep.cache_ttl !== undefined) {
-    if (!/^\d+(s|m|h)$/.test(ep.cache_ttl)) {
-      fail(`Endpoint ${key}: cache_ttl must be in format '<n>s', '<n>m', or '<n>h'`);
-    }
+  if (hasErrors) {
+    console.error("Validation failed with errors.");
+    process.exit(1);
   }
-}
 
-const noBackendUrl = allEndpoints.filter((ep) => !ep.backend_url);
-for (const ep of noBackendUrl) {
-  warn(`Endpoint ${ep.method}:${ep.endpoint} has no backend_url — will default to endpoint path`);
-}
+  const publicCount = manifest.endpoints.filter((e) => e.public).length;
+  const authCount = manifest.endpoints.filter((e) => !e.public).length;
 
-console.log(`\n✅ gateway.manifest.json is valid`);
-console.log(`   service  : ${manifest.service}`);
-console.log(`   version  : ${manifest.version}`);
-console.log(`   endpoints: ${allEndpoints.length} (${manifest.public_endpoints?.length ?? 0} public, ${manifest.authenticated_endpoints?.length ?? 0} authenticated)\n`);
+  console.log(`✓ Manifest validation successful for service "${manifest.service}"`);
+  console.log(`  version   : ${manifest.version}`);
+  console.log(`  endpoints : ${manifest.endpoints.length} (${publicCount} public, ${authCount} authenticated)`);
+  if (openapiPath) {
+    console.log(`  openapi   : cross-validated against ${openapiPath}`);
+  }
+  process.exit(0);
+} catch (err) {
+  console.error("An unexpected error occurred during validation:", err);
+  process.exit(1);
+}

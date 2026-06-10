@@ -30,10 +30,27 @@ wait_for_url() {
 }
 
 FAILED=0
-wait_for_url "http://localhost:${GATEWAY_PORT}/health" "api-gateway" || FAILED=1
-wait_for_url "http://localhost:3000/health" "crm-auth" || FAILED=1
-wait_for_url "http://localhost:3001/health" "crm-collab" || FAILED=1
-wait_for_url "http://localhost:3002/health" "crm-media" || FAILED=1
+wait_for_url "http://localhost:${GATEWAY_PORT}/api/v1/health" "api-gateway" || FAILED=1
+
+# Read service ports from registry/services.json
+SCRIPT_DIR_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INFRA_ROOT_PATH="$(dirname "$SCRIPT_DIR_PATH")"
+SERVICES_JSON="$INFRA_ROOT_PATH/registry/services.json"
+
+if [ -f "$SERVICES_JSON" ]; then
+  while IFS='|' read -r name port; do
+    wait_for_url "http://localhost:${port}/api/v1/health" "crm-${name}" || FAILED=1
+  done < <(node -e "
+    const svcs = JSON.parse(require('fs').readFileSync('$SERVICES_JSON', 'utf8'));
+    svcs.filter(s => s.port).forEach(s => console.log(s.name + '|' + s.port));
+  ")
+else
+  echo "  [WARN] services.json not found, using default ports"
+  wait_for_url "http://localhost:3000/api/v1/health" "crm-auth" || FAILED=1
+  wait_for_url "http://localhost:3001/api/v1/health" "crm-collab" || FAILED=1
+  wait_for_url "http://localhost:3002/api/v1/health" "crm-media" || FAILED=1
+fi
+
 wait_for_url "http://localhost:${FRONTEND_HOST_PORT:-80}" "crm-frontend" || FAILED=1
 
 if (( FAILED )); then

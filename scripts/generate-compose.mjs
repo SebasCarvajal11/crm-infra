@@ -32,7 +32,10 @@ function generateLocalCompose() {
     include,
     services: {
       postgres_db: {
-        image: "postgres:15-alpine",
+        build: {
+          context: ".",
+          dockerfile: "./scripts/Postgres.dockerfile"
+        },
         restart: "unless-stopped",
         environment: {
           POSTGRES_USER: "root",
@@ -47,7 +50,8 @@ function generateLocalCompose() {
         ],
         volumes: [
           "postgres_data:/var/lib/postgresql/data",
-          "./scripts/00-init-service-schemas.sh:/docker-entrypoint-initdb.d/00-init-service-schemas.sh:ro"
+          "./scripts/00-init-service-schemas.sh:/docker-entrypoint-initdb.d/00-init-service-schemas.sh:ro",
+          "./registry:/registry:ro"
         ],
         healthcheck: {
           test: ["CMD-SHELL", "pg_isready -U root -d crm_database"],
@@ -77,7 +81,7 @@ function generateLocalCompose() {
         networks: ["shared_backplane"]
       },
       "clamav-scanner": {
-        image: "clamav/clamav-debian:latest",
+        image: "${CLAMAV_IMAGE:-clamav/clamav-debian:1.4}",
         restart: "unless-stopped",
         ports: [
           "${CLAMAV_HOST_PORT:-13310}:3310"
@@ -92,11 +96,13 @@ function generateLocalCompose() {
         networks: ["shared_backplane"]
       },
       "krakend-config": {
-        image: "node:22-alpine",
+        image: "${NODE_IMAGE:-node:22-alpine}",
+        init: true,
         working_dir: "/workspace",
         environment: krakendEnv,
         volumes: [
           "./gateway:/workspace/gateway:ro",
+          "./registry:/workspace/registry:ro",
           "krakend_config:/output"
         ],
         command: ["node", "gateway/build-krakend.mjs", "--output", "/output/krakend.json"],
@@ -104,7 +110,7 @@ function generateLocalCompose() {
         networks: ["shared_backplane"]
       },
       "api-gateway": {
-        image: "krakend:latest",
+        image: "${KRAKEND_IMAGE:-devopsfaith/krakend:2.9}",
         restart: "unless-stopped",
         ports: [
           "${GATEWAY_HOST_PORT:-18080}:8080"
@@ -147,7 +153,12 @@ function generateSlotProdCompose() {
     if (s.name === "frontend") {
       servicesObj["frontend"] = {
         build: {
-          context: "../crm-frontend"
+          context: "../crm-frontend",
+          args: {
+            NODE_IMAGE: "${NODE_IMAGE:-node:22-alpine}",
+            NGINX_IMAGE: "${NGINX_IMAGE:-nginx:1.27-alpine}",
+            PNPM_VERSION: "${PNPM_VERSION:-11.1.1}"
+          }
         },
         restart: "always",
         ports: [
@@ -166,8 +177,13 @@ function generateSlotProdCompose() {
     // Backend services
     const serviceDef = {
       build: {
-        context: `../crm-${s.name}`
+        context: `../crm-${s.name}`,
+        args: {
+          NODE_IMAGE: "${NODE_IMAGE:-node:22-alpine}",
+          PNPM_VERSION: "${PNPM_VERSION:-11.1.1}"
+        }
       },
+      init: true,
       restart: "always",
       env_file: [
         `../crm-${s.name}/.env.production`,
@@ -191,8 +207,13 @@ function generateSlotProdCompose() {
     for (const w of s.workers || []) {
       const workerDef = {
         build: {
-          context: `../crm-${s.name}`
+          context: `../crm-${s.name}`,
+          args: {
+            NODE_IMAGE: "${NODE_IMAGE:-node:22-alpine}",
+            PNPM_VERSION: "${PNPM_VERSION:-11.1.1}"
+          }
         },
+        init: true,
         restart: "always",
         command: w.command,
         env_file: [
@@ -222,7 +243,7 @@ function generateSlotProdCompose() {
 
   // Add api-gateway service
   servicesObj["api-gateway"] = {
-    image: "krakend:latest",
+    image: "${KRAKEND_IMAGE:-devopsfaith/krakend:2.9}",
     restart: "always",
     ports: [
       "127.0.0.1:${GATEWAY_SLOT_HOST_PORT:?GATEWAY_SLOT_HOST_PORT is required}:8080"

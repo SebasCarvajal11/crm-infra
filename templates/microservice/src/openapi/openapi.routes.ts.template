@@ -3,7 +3,7 @@ import { Hono } from "hono";
 export const createOpenApiRoutes = () => {
   const app = new Hono();
 
-  app.get("/openapi.yaml", (c) => {
+  app.get("/api/v1/openapi.yaml", (c) => {
     return c.text("OpenAPI spec not yet defined", 404);
   });
 

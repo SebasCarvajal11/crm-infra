@@ -100,7 +100,7 @@ function jwtValidator() {
   return {
     "auth/validator": {
       alg: "RS256",
-      jwk_url: `${AUTH_HOST}/.well-known/jwks.json`,
+      jwk_url: `${AUTH_HOST}/api/v1/.well-known/jwks.json`,
       cache: true,
       cache_duration: 900,
       disable_jwk_security: true,
@@ -270,7 +270,7 @@ const AUTH_HEADERS_WITH_BODY = ["Content-Type", ...AUTH_HEADERS_BASE];
 
 function serviceEndpointsUrl(serviceName, defaultHost) {
   const envName = `KRAKEND_${serviceName.toUpperCase()}_ENDPOINTS_URL`;
-  return (process.env[envName]?.trim() || `${defaultHost}/_gateway/gateway.manifest.json`).replace(/\/+$/, "");
+  return (process.env[envName]?.trim() || `${defaultHost}/api/v1/_gateway/gateway.manifest.json`).replace(/\/+$/, "");
 }
 
 async function fetchJsonWithTimeout(url) {
@@ -373,7 +373,7 @@ async function main() {
     const sData = await loadServiceEndpoints(s, sHost);
 
     for (const d of sData.endpoints) {
-      if (d.endpoint === "/health") {
+      if (d.endpoint === "/api/v1/health") {
         continue;
       }
       if (d.public === true) {
@@ -398,7 +398,7 @@ async function main() {
     .filter(s => s.manifestPath)
     .map(s => ({
       host: [hosts[s.name]],
-      url_pattern: "/health",
+      url_pattern: "/api/v1/health",
       group: s.name,
       extra_config: {
         ...extraBackendOpts(),
@@ -411,7 +411,7 @@ async function main() {
 
 
   endpoints.push({
-    endpoint: "/health",
+    endpoint: "/api/v1/health",
     method: "GET",
     output_encoding: "json",
     input_headers: [...PUBLIC_HEADERS_BASE],

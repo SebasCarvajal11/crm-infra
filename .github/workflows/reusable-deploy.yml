@@ -43,7 +43,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-deploy
+  group: production-deploy-${{ inputs.component }}
   cancel-in-progress: false
 
 jobs:

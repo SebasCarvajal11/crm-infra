@@ -19,6 +19,12 @@
     "setup:gateway": "pwsh -File setup/gateway.ps1",
     "setup:all": "pnpm setup:env && pnpm setup:gateway && pnpm setup:db",
     "dev:all": "concurrently --names auth,collab,media,frontend --prefix-colors blue,green,yellow,magenta --kill-others-on-fail \"pnpm --dir ../crm-auth dev\" \"pnpm --dir ../crm-collab dev\" \"pnpm --dir ../crm-media dev\" \"pnpm --dir ../crm-frontend dev\"",
+    "test:hurl": "tsx tests/hurl-runner.ts --all",
+    "test:hurl:auth": "tsx tests/hurl-runner.ts --service=auth",
+    "test:hurl:collab": "tsx tests/hurl-runner.ts --service=collab",
+    "test:hurl:media": "tsx tests/hurl-runner.ts --service=media",
+    "test:hurl:cross": "tsx tests/hurl-runner.ts --service=cross-service",
+    "test:seed": "tsx tests/test-seed.ts --verify",
     "preinstall": "pnpm dlx only-allow pnpm"
   },
   "repository": {
@@ -41,6 +47,7 @@
   },
   "devDependencies": {
     "ajv": "^8.17.1",
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "tsx": "^4.22.4"
   }
 }

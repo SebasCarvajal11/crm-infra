@@ -170,8 +170,8 @@ Current production assumptions:
 
 Oracle ARM note:
 
-- `postgres:16-alpine`, `redis:7-alpine`, and `krakend:latest` expose `linux/arm64` images.
-- ClamAV production now uses `clamav/clamav-debian:latest` because the Alpine `clamav/clamav:latest` image is not published for `linux/arm64`.
+- `postgres:16-alpine`, `redis:7-alpine`, and `devopsfaith/krakend:2.9` expose `linux/arm64` images.
+- ClamAV production uses `clamav/clamav-debian:1.4` because the Alpine `clamav/clamav` image is not published consistently for `linux/arm64`.
 
 First-time server bootstrap:
 

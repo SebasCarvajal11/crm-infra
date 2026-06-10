@@ -64,7 +64,7 @@ tests/         # Hurl contract tests
 
 ## Observabilidad
 
-- Health: `GET /health` — estado de DB, Redis y dependencias opcionales
-- Métricas: `GET /metrics` — Prometheus text/plain (prom-client)
+- Health: `GET /api/v1/health` — estado de DB, Redis y dependencias opcionales
+- Métricas: `GET /api/v1/metrics` — Prometheus text/plain (prom-client)
 - Logs: pino (JSON en producción, pretty en dev) → Loki via promtail
 - Dashboard: Grafana http://localhost:13000 → "CIMA CRM — Overview"

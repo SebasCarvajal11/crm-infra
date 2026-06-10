@@ -4,6 +4,8 @@
     "repo": "SebasCarvajal11/crm-auth",
     "port": 3000,
     "schema": "schema_auth",
+    "language": "typescript",
+    "runtime": "node:22",
     "composeService": "auth",
     "manifestPath": "crm-auth/gateway/gateway.manifest.json",
     "composeFile": "../crm-auth/docker-compose.yml",
@@ -22,24 +24,15 @@
     "workers": [
       {
         "name": "auth-email-worker",
-        "command": [
-          "pnpm",
-          "worker:email"
-        ]
+        "command": ["pnpm", "worker:email"]
       },
       {
         "name": "auth-identity-outbox-worker",
-        "command": [
-          "pnpm",
-          "worker:identity-outbox"
-        ]
+        "command": ["pnpm", "worker:identity-outbox"]
       },
       {
         "name": "auth-token-cleanup-worker",
-        "command": [
-          "pnpm",
-          "worker:cleanup"
-        ]
+        "command": ["pnpm", "worker:cleanup"]
       }
     ],
     "circuitBreaker": {
@@ -53,6 +46,8 @@
     "repo": "SebasCarvajal11/crm-collab",
     "port": 3001,
     "schema": "schema_collab",
+    "language": "typescript",
+    "runtime": "node:22",
     "composeService": "collab",
     "manifestPath": "crm-collab/gateway/gateway.manifest.json",
     "composeFile": "../crm-collab/docker-compose.yml",
@@ -70,10 +65,7 @@
     "workers": [
       {
         "name": "collab-outbox-worker",
-        "command": [
-          "pnpm",
-          "worker:collab-outbox"
-        ]
+        "command": ["pnpm", "worker:collab-outbox"]
       }
     ],
     "circuitBreaker": {
@@ -87,6 +79,8 @@
     "repo": "SebasCarvajal11/crm-media",
     "port": 3002,
     "schema": "schema_media",
+    "language": "typescript",
+    "runtime": "node:22",
     "composeService": "media",
     "manifestPath": "crm-media/gateway/gateway.manifest.json",
     "composeFile": "../crm-media/docker-compose.yml",
@@ -102,17 +96,11 @@
     "workers": [
       {
         "name": "media-command-worker",
-        "command": [
-          "pnpm",
-          "worker:media-commands"
-        ]
+        "command": ["pnpm", "worker:media-commands"]
       },
       {
         "name": "media-quarantine-scan-worker",
-        "command": [
-          "pnpm",
-          "worker:quarantine-scan"
-        ]
+        "command": ["pnpm", "worker:quarantine-scan"]
       }
     ],
     "circuitBreaker": {
@@ -125,6 +113,8 @@
     "name": "frontend",
     "repo": "SebasCarvajal11/crm-frontend",
     "port": 80,
+    "language": "typescript",
+    "runtime": "node:22",
     "composeService": "frontend",
     "composeFile": "../crm-frontend/docker-compose.yml",
     "requiredSecrets": [],

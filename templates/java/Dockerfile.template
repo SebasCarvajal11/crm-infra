@@ -1,0 +1,25 @@
+FROM eclipse-temurin:21-jdk-alpine AS builder
+WORKDIR /app
+COPY build.gradle settings.gradle gradle.properties ./
+COPY gradle ./gradle
+COPY gradlew ./
+RUN chmod +x gradlew && ./gradlew dependencies --no-daemon
+COPY src ./src
+RUN ./gradlew bootJar -x test --no-daemon
+
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY --from=builder /app/build/libs/*.jar app.jar
+COPY gateway ./gateway
+COPY openapi ./openapi
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY docker-healthcheck.sh /usr/local/bin/docker-healthcheck.sh
+
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-healthcheck.sh && addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001 -G appgroup
+USER appuser
+
+EXPOSE {{SERVICE_PORT}}
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD ["docker-healthcheck.sh"]
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["java", "-jar", "app.jar"]

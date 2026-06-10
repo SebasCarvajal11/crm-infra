@@ -49,7 +49,7 @@ C4Container
     Container(krakend, "KrakenD", "API Gateway", "Enrutamiento, validación JWT, rate-limiting, circuit-breaker")
     ContainerDb(postgres, "PostgreSQL 16", "RDBMS", "Schemas: schema_auth, schema_collab, schema_media")
     ContainerDb(redis, "Redis 7 (AOF)", "Broker / Cache", "Redis Streams, BullMQ, rate-limiting")
-    Container(prometheus, "Prometheus", "Métricas", "Scrape de /metrics en todos los servicios")
+    Container(prometheus, "Prometheus", "Métricas", "Scrape de /api/v1/metrics en todos los servicios")
     Container(loki, "Loki", "Logs", "Agregador de logs de contenedores")
     Container(grafana, "Grafana", "Observabilidad", "Dashboard CIMA CRM Overview")
   }
@@ -96,9 +96,9 @@ C4Container
   Rel(media_api, postgres, "schema_media")
   Rel(media_api, oci, "PUT/GET objects")
   Rel(quarantine_worker, postgres, "quarantine_files")
-  Rel(prometheus, auth_api, "GET /metrics")
-  Rel(prometheus, collab_api, "GET /metrics")
-  Rel(prometheus, media_api, "GET /metrics")
+  Rel(prometheus, auth_api, "GET /api/v1/metrics")
+  Rel(prometheus, collab_api, "GET /api/v1/metrics")
+  Rel(prometheus, media_api, "GET /api/v1/metrics")
   Rel(loki, auth_api, "logs via promtail")
   Rel(grafana, prometheus, "datasource")
   Rel(grafana, loki, "datasource")
@@ -119,10 +119,10 @@ C4Component
     Component(auth_ctrl, "AuthController", "Controlador delgado", "Parsea request, llama servicio, formatea response")
     Component(auth_svc, "AuthService", "Servicio de dominio", "Login, refresh, logout, invitaciones, recovery")
     Component(users_repo, "UsersRepository", "Repositorio compuesto", "Combina repos read/write/tokens/invitaciones/outbox")
-    Component(jwks_pub, "JwksPublisher", "Infra", "Expone /.well-known/jwks.json")
+    Component(jwks_pub, "JwksPublisher", "Infra", "Expone /api/v1/.well-known/jwks.json")
     Component(event_pub, "EventPublisher", "Infra", "Publica eventos a Redis stream:auth.identity")
-    Component(metrics_ep, "GET /metrics", "Endpoint", "Expone métricas prom-client en texto Prometheus")
-    Component(health_ep, "GET /health", "Endpoint", "Verifica DB y Redis, devuelve estado agregado")
+    Component(metrics_ep, "GET /api/v1/metrics", "Endpoint", "Expone métricas prom-client en texto Prometheus")
+    Component(health_ep, "GET /api/v1/health", "Endpoint", "Verifica DB y Redis, devuelve estado agregado")
   }
 
   ContainerDb(postgres, "PostgreSQL", "schema_auth")
@@ -131,9 +131,9 @@ C4Component
   Rel(router, auth_mid, "protege rutas privadas")
   Rel(router, metrics_mid, "todas las rutas")
   Rel(router, auth_ctrl, "rutas /auth/*")
-  Rel(router, jwks_pub, "/.well-known/jwks.json")
-  Rel(router, metrics_ep, "/metrics")
-  Rel(router, health_ep, "/health")
+  Rel(router, jwks_pub, "/api/v1/.well-known/jwks.json")
+  Rel(router, metrics_ep, "/api/v1/metrics")
+  Rel(router, health_ep, "/api/v1/health")
   Rel(auth_ctrl, auth_svc, "delega lógica")
   Rel(auth_svc, users_repo, "persistencia")
   Rel(auth_svc, event_pub, "publica eventos")
@@ -182,5 +182,5 @@ sequenceDiagram
 | 3 | Outbox pattern para eventos | RPC síncrono entre servicios | Durabilidad y desacoplamiento temporal |
 | 4 | JWT de servicio (RSA por par) para comandos crm-collab → crm-media | HMAC compartido | No requiere secreto compartido |
 | 5 | Composición de datos en cliente (TanStack Query) | BFF de composición server-side | Eliminó una capa de acoplamiento |
-| 6 | prom-client /metrics + Prometheus + Grafana | Métricas ad-hoc en Redis | Estándar de industria, alertas nativas |
+| 6 | prom-client /api/v1/metrics + Prometheus + Grafana | Métricas ad-hoc en Redis | Estándar de industria, alertas nativas |
 | 7 | Redis Streams + consumer groups para eventos | BullMQ para todos los eventos | Retencion de historia, replay posible |

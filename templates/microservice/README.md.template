@@ -56,7 +56,7 @@ pnpm dev
 
 - Gateway manifest: `gateway/gateway.manifest.json`
 - OpenAPI spec: `openapi/openapi.yaml`
-- Health endpoint: `GET /health`
+- Health endpoint: `GET /api/v1/health`
 
 ## Adding New Services Using This Template
 

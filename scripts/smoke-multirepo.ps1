@@ -30,17 +30,17 @@ function Assert-JsonField([object]$Value, [string]$Message) {
 Write-Host ""
 Write-Host "Smoke multi-repo" -ForegroundColor Green
 
-Wait-HttpOk "$GatewayBaseUrl/health" | Out-Null
-Wait-HttpOk "http://localhost:3000/health" | Out-Null
-Wait-HttpOk "http://localhost:3001/health" | Out-Null
-Wait-HttpOk "http://localhost:3002/health" | Out-Null
+Wait-HttpOk "$GatewayBaseUrl/api/v1/health" | Out-Null
+Wait-HttpOk "http://localhost:3000/api/v1/health" | Out-Null
+Wait-HttpOk "http://localhost:3001/api/v1/health" | Out-Null
+Wait-HttpOk "http://localhost:3002/api/v1/health" | Out-Null
 
 $frontendShell = Wait-HttpOk $FrontendBaseUrl
 if ($frontendShell.Content -notmatch '<div id="root">') {
   throw "El frontend no entrego el shell esperado en $FrontendBaseUrl"
 }
 
-Wait-HttpOk "$FrontendBaseUrl/api/health" | Out-Null
+Wait-HttpOk "$FrontendBaseUrl/api/v1/health" | Out-Null
 
 $loginBody = @{
   email = "admin@cima.dev"

@@ -30,7 +30,7 @@ export const createApp = () => {
   // app.route("/{{SERVICE_NAME}}", exampleRouter);
 
   // --- Health Check ---
-  app.get("/health", async (c) => {
+  app.get("/api/v1/health", async (c) => {
     const [pg, redis] = await Promise.all([
       checkPostgres(pool),
       checkRedis(getRedisConnection()),

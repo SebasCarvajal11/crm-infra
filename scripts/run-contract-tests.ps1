@@ -5,7 +5,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 $WorkspaceRoot = Split-Path -Parent $Root
 $ComposeFile = Join-Path $Root "docker-compose.yml"
 $env:GATEWAY_HOST_PORT = if ($env:GATEWAY_HOST_PORT) { $env:GATEWAY_HOST_PORT } else { "28080" }
-$GatewayHealthUrl = "http://localhost:$($env:GATEWAY_HOST_PORT)/health"
+$GatewayHealthUrl = "http://localhost:$($env:GATEWAY_HOST_PORT)/api/v1/health"
 
 function Resolve-RepoPath([string]$EnvVarName, [string]$SiblingName) {
   $configured = [Environment]::GetEnvironmentVariable($EnvVarName, "Process")

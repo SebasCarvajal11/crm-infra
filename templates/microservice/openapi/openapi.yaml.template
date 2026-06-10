@@ -9,7 +9,7 @@ servers:
   - url: "http://localhost:8080"
     description: "Via API Gateway"
 paths:
-  /health:
+  /api/v1/health:
     get:
       summary: "Health check"
       responses:

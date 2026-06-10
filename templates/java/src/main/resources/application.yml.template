@@ -1,0 +1,39 @@
+server:
+  port: ${PORT:{{SERVICE_PORT}}}
+
+spring:
+  application:
+    name: crm-{{SERVICE_NAME}}
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/crm_database}
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:rootpassword}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+  flyway:
+    enabled: true
+    schemas: ${DB_SCHEMA:schema_{{SERVICE_NAME}}}
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.cima: DEBUG

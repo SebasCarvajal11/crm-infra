@@ -4,9 +4,8 @@ CONTAINER_MODE=${CONTAINER_MODE:-api}
 PORT=${PORT:-{{SERVICE_PORT}}}
 
 if [ "$CONTAINER_MODE" = "api" ]; then
-  response=$(wget -qO- --timeout=5 "http://localhost:${PORT}/health" 2>/dev/null)
-  if [ $? -ne 0 ]; then
-    echo "Health check failed: could not reach /health endpoint"
+  if ! response=$(wget -qO- --timeout=5 "http://127.0.0.1:${PORT}/api/v1/health" 2>/dev/null); then
+    echo "Health check failed: could not reach /api/v1/health endpoint"
     exit 1
   fi
   status=$(echo "$response" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)

@@ -110,8 +110,8 @@ To prevent initialization failures and ensure components can discover each other
 - **JWKS Endpoint (`crm-auth`)**: Hard dependency for `crm-collab` and `crm-media`. These services cache JWKS keys but require connection to `crm-auth` on startup/first signature check to retrieve them.
 
 ### Health Check Protocols
-- **Gateway Health**: The API Gateway exposes `/health` which aggregates the health checks of all microservices (`auth`, `collab`, `media`) by performing a native parallel fan-out check.
-- **Service Health**: Each service exposes a `/health` endpoint returning detailed dependency status (Postgres, Redis, ClamAV, OCI).
+- **Gateway Health**: The API Gateway exposes `/api/v1/health` which aggregates the health checks of all microservices (`auth`, `collab`, `media`) by performing a native parallel fan-out check.
+- **Service Health**: Each service exposes a `/api/v1/health` endpoint returning detailed dependency status (Postgres, Redis, ClamAV, OCI).
 - **Background Worker Health**: Workers write their status reports to `/tmp/worker-healthy` periodically. The container's `docker-healthcheck.sh` reads and validates this report.
 
 ### Recovery Procedures
@@ -139,6 +139,5 @@ To maintain a clean and decoupled architecture, the platform enforces a strict p
   - **HTTP-based Identity Hydration (Retired: 2026-05-01)**: The REST endpoint `/bootstrap-identities` in `crm-auth` and HTTP-based hydration scripts are completely removed. Restoring identity snapshots must be done via the event replay-request stream (`stream:auth.identity-replay-requests`).
   - **Static Gateway BFF Configuration (Retired: 2026-05-15)**: The legacy `bff.json` configuration in the gateway is completely retired and removed. All composition logic is handled dynamically by the frontend composition layer.
   - **Legacy Endpoints Config (Retired: 2026-06-01)**: The unvalidated `endpoints.json` files are completely replaced by validated `gateway.manifest.json` manifests.
-
 
 

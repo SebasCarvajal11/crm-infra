@@ -36,8 +36,8 @@ pnpm dev            # servidor con hot-reload (tsx watch)
 Endpoints útiles en dev:
 
 - API: `http://localhost:{{PORT}}`
-- Health: `http://localhost:{{PORT}}/health`
-- Métricas: `http://localhost:{{PORT}}/metrics`
+- Health: `http://localhost:{{PORT}}/api/v1/health`
+- Métricas: `http://localhost:{{PORT}}/api/v1/metrics`
 - OpenAPI: `http://localhost:{{PORT}}/openapi.json`
 
 Workers (procesos separados):
