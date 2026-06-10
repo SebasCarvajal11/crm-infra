@@ -91,5 +91,6 @@ jobs:
             export COMPOSE_FILE_OVERRIDE='${{ inputs.composeFile }}'; \
             export ENV_FILE_OVERRIDE='${{ inputs.envFile }}'; \
             export HEALTH_CHECK_URL_OVERRIDE='${{ inputs.healthCheckUrl }}'; \
+            cd '$DEPLOY_BASE_DIR/crm-infra'; \
             bash '$DEPLOY_BASE_DIR/crm-infra/deploy/remote/bootstrap-server.sh'; \
             bash '$DEPLOY_BASE_DIR/crm-infra/deploy/remote/deploy-component.sh' '$COMPONENT'"
