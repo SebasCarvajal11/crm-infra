@@ -115,8 +115,8 @@ jobs:
 
       - name: Validate deploy shell scripts
         run: |
-          docker run --rm -v "${{ github.workspace }}/crm-infra/deploy/remote/bootstrap-server.sh:/bootstrap.sh:ro" bash:5 bash -n /bootstrap.sh
-          docker run --rm -v "${{ github.workspace }}/crm-infra/deploy/remote/deploy-component.sh:/deploy.sh:ro" bash:5 bash -n /deploy.sh
+          bash -n deploy/remote/bootstrap-server.sh
+          bash -n deploy/remote/deploy-component.sh
 
       - name: Checkout frontend env template
         uses: actions/checkout@v6
@@ -254,10 +254,7 @@ jobs:
         run: node scripts/validate-registry.mjs
 
       - name: Validate bootstrap shell script syntax
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}/crm-infra/scripts/00-init-service-schemas.sh:/bootstrap.sh:ro" \
-            bash:5 bash -n /bootstrap.sh
+        run: bash -n scripts/00-init-service-schemas.sh
 
       - name: Run bootstrap (first pass — idempotent create)
         run: |
