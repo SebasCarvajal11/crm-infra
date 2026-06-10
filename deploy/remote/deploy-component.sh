@@ -687,10 +687,10 @@ for svc_info in $db_services; do
 
     # Run init script based on language
     if [[ "$sLanguage" == "typescript" ]]; then
-      with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" DB_SCHEMA="$sSchema" pnpm "$sInit"
+      with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" pnpm "$sInit"
       with_dotenv "$sDir" "$sDir/.env.production" env DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" pnpm "$sMigrate"
     elif [[ "$sLanguage" == "java" ]]; then
-      with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" DB_SCHEMA="$sSchema" ./gradlew "$sInit" --no-daemon
+      with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" ./gradlew "$sInit" --no-daemon
       with_dotenv "$sDir" "$sDir/.env.production" env DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" ./gradlew "$sMigrate" --no-daemon
     fi
   fi
