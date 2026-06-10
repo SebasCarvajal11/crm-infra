@@ -476,10 +476,11 @@ jobs:
           user=ocid1.user.oc1..placeholder
           fingerprint=aa:bb:cc:dd:ee:ff:00:11:22:33
           tenancy=ocid1.tenancy.oc1..placeholder
-          region=us-sanjose-1
-          key_file=/opt/cima/secrets/oci/oci_api_key.pem
+            region=us-sanjose-1
+            key_file=/opt/cima/secrets/oci/oci_api_key.pem
           OCIEOF
-            echo "placeholder-key" > /tmp/oci/oci_api_key.pem
+            openssl genrsa -out /tmp/oci/oci_api_key.pem 2048
+            chmod 600 /tmp/oci/oci_api_key.pem
           fi
 
       - name: Prepare gateway build env
