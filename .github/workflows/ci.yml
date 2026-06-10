@@ -581,7 +581,7 @@ jobs:
       - name: Seed test data
         working-directory: ${{ github.workspace }}
         shell: bash
-        run: (cd crm-auth && pnpm db:seed)
+        run: (cd crm-auth && DATABASE_URL=postgresql://auth_user:authpassword_ci@localhost:5432/crm_database DB_SCHEMA=schema_auth pnpm db:seed)
 
       - name: Start application stack
         working-directory: crm-infra

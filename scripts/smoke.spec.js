@@ -24,8 +24,8 @@ function makeUploadFile() {
 
 async function logout(page, context) {
   await context.clearCookies()
-  await page.evaluate(() => sessionStorage.clear())
   await page.goto('/login')
+  await page.evaluate(() => sessionStorage.clear()).catch(() => {})
   await page.waitForURL(/\/login/)
 }
 
