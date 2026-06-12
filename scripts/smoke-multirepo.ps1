@@ -34,6 +34,7 @@ Wait-HttpOk "$GatewayBaseUrl/api/v1/health" | Out-Null
 Wait-HttpOk "http://localhost:3000/api/v1/health" | Out-Null
 Wait-HttpOk "http://localhost:3001/api/v1/health" | Out-Null
 Wait-HttpOk "http://localhost:3002/api/v1/health" | Out-Null
+Wait-HttpOk "http://localhost:3003/actuator/health" | Out-Null
 
 $frontendShell = Wait-HttpOk $FrontendBaseUrl
 if ($frontendShell.Content -notmatch '<div id="root">') {
@@ -70,4 +71,4 @@ if ($null -eq $projects.data) {
   throw "La respuesta de /projects no incluyo data"
 }
 
-Write-Host "OK: gateway, auth, collab, media, frontend y proxy /api respondieron." -ForegroundColor Green
+Write-Host "OK: gateway, auth, collab, media, marketing, frontend y proxy /api respondieron." -ForegroundColor Green
