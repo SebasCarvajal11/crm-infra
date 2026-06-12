@@ -4,6 +4,7 @@ include:
   - path: ../crm-collab/docker-compose.yml
   - path: ../crm-media/docker-compose.yml
   - path: ../crm-frontend/docker-compose.yml
+  - path: ../crm-marketing/docker-compose.yml
 services:
   postgres_db:
     build:
@@ -17,6 +18,7 @@ services:
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:-authpassword}
       COLLAB_DB_PASSWORD: ${COLLAB_DB_PASSWORD:-collabpassword}
       MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:-mediapassword}
+      MARKETING_DB_PASSWORD: ${MARKETING_DB_PASSWORD:-marketingpassword}
     ports:
       - ${POSTGRES_HOST_PORT:-15432}:5432
     volumes:
@@ -74,6 +76,7 @@ services:
       KRAKEND_AUTH_HOST: ${KRAKEND_AUTH_HOST:-http://crm-auth:3000}
       KRAKEND_COLLAB_HOST: ${KRAKEND_COLLAB_HOST:-http://crm-collab:3001}
       KRAKEND_MEDIA_HOST: ${KRAKEND_MEDIA_HOST:-http://crm-media:3002}
+      KRAKEND_MARKETING_HOST: ${KRAKEND_MARKETING_HOST:-http://crm-marketing:3003}
       KRAKEND_ENDPOINTS_SOURCE: http
     volumes:
       - ./gateway:/workspace/gateway:ro
@@ -90,6 +93,8 @@ services:
       crm-collab:
         condition: service_healthy
       crm-media:
+        condition: service_healthy
+      crm-marketing:
         condition: service_healthy
     networks:
       - shared_backplane

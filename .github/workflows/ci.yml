@@ -84,6 +84,17 @@ jobs:
           sparse-checkout-cone-mode: false
 
 
+      - name: Checkout marketing gateway config
+        uses: actions/checkout@v6
+        with:
+          repository: arisocode/CIMA---Marketing-Analytics-Backend
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
+          path: crm-marketing
+          sparse-checkout: |
+            gateway
+            .env.example
+          sparse-checkout-cone-mode: false
+
       - name: Checkout contracts
         uses: actions/checkout@v6
         with:
@@ -135,10 +146,12 @@ jobs:
           cp ../crm-auth/.env.example ../crm-auth/.env.production
           cp ../crm-collab/.env.example ../crm-collab/.env.production
           cp ../crm-media/.env.example ../crm-media/.env.production
+          cp ../crm-marketing/.env.example ../crm-marketing/.env.production
           cp ../crm-frontend/.env.example ../crm-frontend/.env.production
           cp ../crm-auth/.env.example ../crm-auth/.env
           cp ../crm-collab/.env.example ../crm-collab/.env
           cp ../crm-media/.env.example ../crm-media/.env
+          cp ../crm-marketing/.env.example ../crm-marketing/.env
           mkdir -p deploy/runtime
           cat > deploy/runtime/edge.conf <<'EOF'
           server {
@@ -178,12 +191,23 @@ jobs:
           MEDIA_RESPONSES_STREAM_KEY=media:responses
           MEDIA_COMMANDS_CONSUMER_GROUP=media-command-consumers
           EOF
+
+          cat > deploy/runtime/marketing.blue.env <<'EOF'
+          DATABASE_HOST=postgres_db
+          DATABASE_PORT=5432
+          DATABASE_NAME=crm_database
+          DB_SCHEMA=schema_marketing
+          DATABASE_USER=marketing_user
+          DATABASE_PASSWORD=marketingpassword_ci
+          CRM_BASE_URL=http://api-gateway:8080
+          EOF
  
       - name: Build KrakenD config
         env:
           KRAKEND_AUTH_HOST: http://auth:3000
           KRAKEND_COLLAB_HOST: http://collab:3001
           KRAKEND_MEDIA_HOST: http://media:3002
+          KRAKEND_MARKETING_HOST: http://marketing:3003
           KRAKEND_ENDPOINTS_SOURCE: file
           KRAKEND_PORT: "8080"
         run: pnpm gateway:build --output deploy/runtime/krakend.blue.json
@@ -225,6 +249,7 @@ jobs:
       AUTH_DB_PASSWORD: authpassword_ci
       COLLAB_DB_PASSWORD: collabpassword_ci
       MEDIA_DB_PASSWORD: mediapassword_ci
+      MARKETING_DB_PASSWORD: marketingpassword_ci
       PGHOST: localhost
       PGPORT: 5432
       PGPASSWORD: ci-postgres-password
@@ -266,8 +291,8 @@ jobs:
 
       - name: Verify roles and schemas exist
         run: |
-          psql -U root -d crm_database -c "\dn" | grep -E "schema_auth|schema_collab|schema_media"
-          psql -U root -d crm_database -c "\du" | grep -E "auth_user|collab_user|media_user"
+          psql -U root -d crm_database -c "\dn" | grep -E "schema_auth|schema_collab|schema_media|schema_marketing"
+          psql -U root -d crm_database -c "\du" | grep -E "auth_user|collab_user|media_user|marketing_user"
 
   # ═══════════════════════════════════════════════════════════════════
   # SMOKE E2E — Full-stack Playwright tests against Docker Compose
@@ -320,6 +345,13 @@ jobs:
           repository: SebasCarvajal11/crm-media
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-media
+
+      - name: Checkout crm-marketing
+        uses: actions/checkout@v6
+        with:
+          repository: arisocode/CIMA---Marketing-Analytics-Backend
+          token: ${{ secrets.CIMA_GITHUB_TOKEN }}
+          path: crm-marketing
 
       - name: Checkout crm-frontend
         uses: actions/checkout@v6
@@ -458,7 +490,20 @@ jobs:
             'OCI_BUCKET_DOCS_PRIVATE=crm-docs-private',
             'OCI_HEALTHCHECK_ENABLED=false',
           ].join('\\n') + '\\n');
+
+          // Marketing .env
+          fs.writeFileSync('crm-marketing/.env', [
+            'PORT=3003',
+            'DATABASE_HOST=postgres_db',
+            'DATABASE_PORT=5432',
+            'DATABASE_NAME=crm_database',
+            'DB_SCHEMA=schema_marketing',
+            'DATABASE_USER=marketing_user',
+            'DATABASE_PASSWORD=marketingpassword_ci',
+            'CRM_BASE_URL=http://api-gateway:8080',
+          ].join('\\n') + '\\n');
           "
+
 
       - name: Prepare OCI config for media service
         shell: bash
@@ -605,11 +650,11 @@ jobs:
             echo " FAIL"; return 1
           }
           wait_for_container_url() {
-            local service="$1" port="$2" name="$3" deadline=$((SECONDS + 180))
+            local service="$1" port="$2" name="$3" path="${4:-/api/v1/health}" deadline=$((SECONDS + 180))
             echo -n "  Waiting for $name..."
             while (( SECONDS < deadline )); do
               if docker compose -f crm-infra/docker-compose.yml --env-file crm-infra/.env.docker exec -T "$service" \
-                node -e "fetch('http://127.0.0.1:${port}/api/v1/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+                node -e "fetch('http://127.0.0.1:${port}' + '${path}').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
                 echo " OK"; return 0
               fi
               sleep 3
@@ -622,12 +667,13 @@ jobs:
           wait_for_container_url "crm-auth" "3000" "crm-auth" || FAILED=1
           wait_for_container_url "crm-collab" "3001" "crm-collab" || FAILED=1
           wait_for_container_url "crm-media" "3002" "crm-media" || FAILED=1
+          wait_for_container_url "crm-marketing" "3003" "crm-marketing" "/actuator/health" || FAILED=1
           wait_for_url "http://localhost:80" "crm-frontend" || FAILED=1
 
           if (( FAILED )); then
             echo ""
             echo "=== Service logs (last 30 lines each) ==="
-            for svc in crm-auth crm-collab crm-media crm-frontend api-gateway; do
+            for svc in crm-auth crm-collab crm-media crm-marketing crm-frontend api-gateway; do
               echo "--- $svc ---"
               docker compose -f crm-infra/docker-compose.yml logs --tail=30 "$svc" 2>/dev/null || true
             done

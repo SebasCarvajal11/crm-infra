@@ -9,6 +9,7 @@ services:
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
       COLLAB_DB_PASSWORD: ${COLLAB_DB_PASSWORD:?COLLAB_DB_PASSWORD is required}
       MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?MEDIA_DB_PASSWORD is required}
+      MARKETING_DB_PASSWORD: ${MARKETING_DB_PASSWORD:?MARKETING_DB_PASSWORD is required}
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
@@ -69,6 +70,8 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
+
+
 
 volumes:
   postgres_data_prod:

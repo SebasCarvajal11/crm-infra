@@ -9,6 +9,9 @@
       "repo": { "type": "string" },
       "port": { "type": "integer" },
       "schema": { "type": "string" },
+      "language": { "type": "string" },
+      "buildTool": { "type": "string", "enum": ["gradle", "maven"] },
+      "runtime": { "type": "string" },
       "image": { "type": "string" },
       "composeService": { "type": "string" },
       "manifestPath": { "type": "string" },
@@ -49,4 +52,3 @@
     }
   }
 }
-

@@ -213,6 +213,24 @@ services:
         condition: service_started
     networks:
       - default
+  marketing:
+    build:
+      context: ../crm-marketing
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
+    restart: always
+    env_file:
+      - ../crm-marketing/.env.production
+      - ./deploy/runtime/marketing.${APP_SLOT:?APP_SLOT is required}.env
+    environment:
+      CONTAINER_MODE: server
+    networks:
+      - default
+      - shared_backplane
+    volumes:
+      - /opt/cima/secrets:/opt/cima/secrets:ro
   api-gateway:
     image: ${KRAKEND_IMAGE:-devopsfaith/krakend:2.9}
     restart: always

@@ -119,5 +119,21 @@
     "composeFile": "../crm-frontend/docker-compose.yml",
     "requiredSecrets": [],
     "workers": []
+  },
+  {
+    "name": "marketing",
+    "repo": "arisocode/CIMA---Marketing-Analytics-Backend",
+    "port": 3003,
+    "schema": "schema_marketing",
+    "language": "java",
+    "buildTool": "maven",
+    "runtime": "java:21",
+    "composeService": "marketing",
+    "manifestPath": "crm-marketing/gateway/gateway.manifest.json",
+    "composeFile": "../crm-marketing/docker-compose.yml",
+    "requiredSecrets": [
+      "MARKETING_DB_PASSWORD"
+    ],
+    "workers": []
   }
 ]

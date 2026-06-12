@@ -34,5 +34,17 @@
       "sequences": ["USAGE", "SELECT", "UPDATE"],
       "functions": ["EXECUTE"]
     }
+  },
+  {
+    "service": "marketing",
+    "role": "marketing_user",
+    "passwordEnvVar": "MARKETING_DB_PASSWORD",
+    "schema": "schema_marketing",
+    "grants": {
+      "schema": ["USAGE", "CREATE"],
+      "tables": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+      "sequences": ["USAGE", "SELECT", "UPDATE"],
+      "functions": ["EXECUTE"]
+    }
   }
 ]

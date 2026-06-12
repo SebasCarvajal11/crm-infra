@@ -34,6 +34,11 @@ on:
         required: false
         type: boolean
         default: false
+      build_tool:
+        required: false
+        type: string
+        default: "gradle"
+
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -104,16 +109,20 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-          cache: 'gradle'
+          cache: ${{ inputs.build_tool }}
 
       # ── Install Dependencies ──────────────────────────────────
       - name: Install dependencies (TypeScript)
         if: inputs.language == 'typescript'
         run: pnpm install --frozen-lockfile
 
-      - name: Install dependencies (Java)
-        if: inputs.language == 'java'
+      - name: Install dependencies (Java Gradle)
+        if: inputs.language == 'java' && inputs.build_tool == 'gradle'
         run: ./gradlew dependencies --no-daemon
+
+      - name: Install dependencies (Java Maven)
+        if: inputs.language == 'java' && inputs.build_tool == 'maven'
+        run: chmod +x mvnw && ./mvnw dependency:resolve --no-transfer-progress
 
       # ── Security Scans ────────────────────────────────────────
       - name: Audit dependencies for vulnerabilities
@@ -281,9 +290,13 @@ jobs:
         if: inputs.language == 'typescript'
         run: pnpm build
 
-      - name: Build (Java)
-        if: inputs.language == 'java'
+      - name: Build (Java Gradle)
+        if: inputs.language == 'java' && inputs.build_tool == 'gradle'
         run: ./gradlew build -x test --no-daemon
+
+      - name: Build (Java Maven)
+        if: inputs.language == 'java' && inputs.build_tool == 'maven'
+        run: chmod +x mvnw && ./mvnw clean package -DskipTests --no-transfer-progress
 
       # ── Validations ───────────────────────────────────────────
       - name: Validate gateway manifest
@@ -298,18 +311,32 @@ jobs:
         if: ${{ inputs.runs_db && inputs.language == 'typescript' }}
         run: pnpm db:push
 
-      - name: Prepare schema (Java)
-        if: ${{ inputs.runs_db && inputs.language == 'java' }}
+      - name: Prepare schema (Java Gradle)
+        if: ${{ inputs.runs_db && inputs.language == 'java' && inputs.build_tool == 'gradle' }}
         run: ./gradlew flywayMigrate --no-daemon
+
+      - name: Prepare schema (Java Maven)
+        if: ${{ inputs.runs_db && inputs.language == 'java' && inputs.build_tool == 'maven' }}
+        shell: bash
+        run: |
+          if grep -q "flyway" pom.xml; then
+            chmod +x mvnw && ./mvnw flyway:migrate --no-transfer-progress
+          else
+            echo "No Flyway detected in pom.xml. Skipping schema migration step."
+          fi
 
       # ── Tests ─────────────────────────────────────────────────
       - name: Run test suite (TypeScript)
         if: inputs.language == 'typescript'
         run: ${{ inputs.test_command || 'pnpm test:unit' }}
 
-      - name: Run test suite (Java)
-        if: inputs.language == 'java'
+      - name: Run test suite (Java Gradle)
+        if: inputs.language == 'java' && inputs.build_tool == 'gradle'
         run: ${{ inputs.test_command || './gradlew test --no-daemon' }}
+
+      - name: Run test suite (Java Maven)
+        if: inputs.language == 'java' && inputs.build_tool == 'maven'
+        run: chmod +x mvnw && ${{ inputs.test_command || './mvnw test --no-transfer-progress' }}
 
       # ── Docker Build & Scan ───────────────────────────────────
       - name: Build production image

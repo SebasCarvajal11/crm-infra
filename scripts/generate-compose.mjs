@@ -7,6 +7,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const servicesPath = resolve(__dirname, "../registry/services.json");
 const services = JSON.parse(readFileSync(servicesPath, "utf-8"));
+const grantsPath = resolve(__dirname, "../registry/db/grants.json");
+const grants = JSON.parse(readFileSync(grantsPath, "utf-8"));
+
+function buildLocalDbPasswordEnv() {
+  return Object.fromEntries(
+    grants.map((grant) => [
+      grant.passwordEnvVar,
+      `\${${grant.passwordEnvVar}:-${grant.service}password}`
+    ])
+  );
+}
 
 // 1. Generate docker-compose.yml (Local Development)
 function generateLocalCompose() {
@@ -41,9 +52,7 @@ function generateLocalCompose() {
           POSTGRES_USER: "root",
           POSTGRES_PASSWORD: "rootpassword",
           POSTGRES_DB: "crm_database",
-          AUTH_DB_PASSWORD: "${AUTH_DB_PASSWORD:-authpassword}",
-          COLLAB_DB_PASSWORD: "${COLLAB_DB_PASSWORD:-collabpassword}",
-          MEDIA_DB_PASSWORD: "${MEDIA_DB_PASSWORD:-mediapassword}"
+          ...buildLocalDbPasswordEnv()
         },
         ports: [
           "${POSTGRES_HOST_PORT:-15432}:5432"

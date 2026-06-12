@@ -3,12 +3,12 @@ set -euo pipefail
 
 component="${1:-}"
 if [[ -z "$component" ]]; then
-  echo "Usage: deploy-component.sh <infra|auth|collab|media|frontend|full>" >&2
+  echo "Usage: deploy-component.sh <infra|auth|collab|media|frontend|marketing|full>" >&2
   exit 1
 fi
 
 case "$component" in
-  infra|auth|collab|media|frontend|full) ;;
+  infra|auth|collab|media|frontend|marketing|full) ;;
   *)
     echo "Unsupported component: $component" >&2
     exit 1
@@ -245,7 +245,7 @@ dump_logs() {
     APP_SLOT="$target_slot" \
     GATEWAY_SLOT_HOST_PORT="$(slot_gateway_port "$target_slot")" \
     FRONTEND_SLOT_HOST_PORT="$(slot_frontend_port "$target_slot")" \
-    docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" logs --tail=150 auth media collab api-gateway frontend auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
+    docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" logs --tail=150 auth media collab marketing api-gateway frontend auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
   fi
   if [[ -n "$previous_slot" && "$previous_slot" != "$target_slot" ]]; then
     APP_SLOT="$previous_slot" \
@@ -472,6 +472,7 @@ build_gateway_for_slot() {
     KRAKEND_AUTH_HOST="${KRAKEND_AUTH_HOST:-http://auth:3000}" \
     KRAKEND_COLLAB_HOST="${KRAKEND_COLLAB_HOST:-http://collab:3001}" \
     KRAKEND_MEDIA_HOST="${KRAKEND_MEDIA_HOST:-http://media:3002}" \
+    KRAKEND_MARKETING_HOST="${KRAKEND_MARKETING_HOST:-http://marketing:3003}" \
     KRAKEND_ENDPOINTS_SOURCE="${KRAKEND_ENDPOINTS_SOURCE:-file}" \
     KRAKEND_PORT="8080" \
     pnpm gateway:build --output "$runtime_dir/krakend.${slot}.json"
@@ -488,7 +489,7 @@ start_slot_web() {
     APP_SLOT="$slot" \
     GATEWAY_SLOT_HOST_PORT="$gateway_port" \
     FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-    docker compose -p "$project" -f "$slot_compose" up -d --build auth media collab api-gateway frontend
+    docker compose -p "$project" -f "$slot_compose" up -d --build auth media collab marketing api-gateway frontend
   else
     local build_args=""
     case "$component" in
@@ -496,6 +497,7 @@ start_slot_web() {
       collab) build_args="collab" ;;
       media) build_args="media" ;;
       frontend) build_args="frontend" ;;
+      marketing) build_args="marketing" ;;
     esac
 
     if [[ -n "$build_args" ]]; then
@@ -509,7 +511,7 @@ start_slot_web() {
     APP_SLOT="$slot" \
     GATEWAY_SLOT_HOST_PORT="$gateway_port" \
     FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-    docker compose -p "$project" -f "$slot_compose" up -d auth media collab api-gateway frontend
+    docker compose -p "$project" -f "$slot_compose" up -d auth media collab marketing api-gateway frontend
   fi
 
   wait_for_http_ok "slot-${slot}-frontend" "http://127.0.0.1:${frontend_port}/"
@@ -686,6 +688,7 @@ for svc_info in $db_services; do
   if [[ "$component" == "$sName" || "$component" == "full" ]]; then
     echo "Running migrations for $sName in $sDir..."
     sLanguage=$(jq -r ".[] | select(.name==\"$sName\") | .language // \"typescript\"" registry/services.json)
+    sBuildTool=$(jq -r ".[] | select(.name==\"$sName\") | .buildTool // \"gradle\"" registry/services.json)
     sInstallCmd=$(jq -r ".[] | select(.name==\"$sName\") | .installCommand // \"\"" registry/services.json)
 
     # Install dependencies based on language
@@ -709,8 +712,10 @@ for svc_info in $db_services; do
     for setup_script in "${setup_scripts[@]}"; do
       if [[ "$sLanguage" == "typescript" ]]; then
         with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" pnpm "$setup_script"
-      elif [[ "$sLanguage" == "java" ]]; then
+      elif [[ "$sLanguage" == "java" && "$sBuildTool" == "gradle" ]]; then
         with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" ./gradlew "$setup_script" --no-daemon
+      elif [[ "$sLanguage" == "java" && "$sBuildTool" == "maven" ]]; then
+        with_dotenv "$sDir" "$sDir/.env.production" env DB_SUPERUSER_URL="$superuser_url" DATABASE_URL="$(host_db_url "$s_db_url")" DB_SCHEMA="$sSchema" bash -c "chmod +x ./mvnw && ./mvnw '$setup_script' --no-transfer-progress"
       fi
     done
   fi
@@ -752,10 +757,14 @@ printf '%s\n' "$target_slot" > "$active_slot_file"
     sVer="${!sVerVar}"
     
     sLanguage=$(jq -r ".[] | select(.name==\"$sName\") | .language // \"typescript\"" registry/services.json)
+    sBuildTool=$(jq -r ".[] | select(.name==\"$sName\") | .buildTool // \"gradle\"" registry/services.json)
     if [[ "$sLanguage" == "typescript" ]]; then
       sSemver="$(jq -r '.version // "1.0.0"' "$sDir/package.json" 2>/dev/null || echo "1.0.0")"
-    elif [[ "$sLanguage" == "java" ]]; then
+    elif [[ "$sLanguage" == "java" && "$sBuildTool" == "gradle" ]]; then
       sSemver="$(grep -oP 'version\s*=\s*\K[^\s]+' "$sDir/gradle.properties" 2>/dev/null || echo "1.0.0")"
+    elif [[ "$sLanguage" == "java" && "$sBuildTool" == "maven" ]]; then
+      sSemver="$(sed -n -E 's/.*<version>([^<]+)<\/version>.*/\1/p' "$sDir/pom.xml" 2>/dev/null | head -n 1 || true)"
+      [[ -n "$sSemver" ]] || sSemver="1.0.0"
     else
       sSemver="1.0.0"
     fi
