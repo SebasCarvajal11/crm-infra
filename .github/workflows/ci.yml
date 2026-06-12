@@ -656,8 +656,18 @@ jobs:
             local service="$1" port="$2" name="$3" path="${4:-/api/v1/health}" deadline=$((SECONDS + 180))
             echo -n "  Waiting for $name..."
             while (( SECONDS < deadline )); do
-              if docker compose -f crm-infra/docker-compose.yml --env-file crm-infra/.env.docker exec -T "$service" \
-                node -e "fetch('http://127.0.0.1:${port}' + '${path}').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+              if docker compose -f crm-infra/docker-compose.yml --env-file crm-infra/.env.docker exec -T "$service" sh -c "
+                url='http://127.0.0.1:${port}${path}'
+                if command -v node >/dev/null 2>&1; then
+                  node -e \"fetch(process.argv[1]).then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\" \"\$url\"
+                elif command -v curl >/dev/null 2>&1; then
+                  curl -fsS \"\$url\" >/dev/null
+                elif command -v wget >/dev/null 2>&1; then
+                  wget -q --spider \"\$url\"
+                else
+                  exit 127
+                fi
+              " >/dev/null 2>&1; then
                 echo " OK"; return 0
               fi
               sleep 3
