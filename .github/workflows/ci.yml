@@ -26,6 +26,7 @@ jobs:
       AUTH_DB_PASSWORD: authpassword
       COLLAB_DB_PASSWORD: collabpassword
       MEDIA_DB_PASSWORD: mediapassword
+      MARKETING_DB_PASSWORD: marketingpassword
       REDIS_HOST_PORT: "6379"
       CLAMAV_HOST_PORT: "3310"
       GATEWAY_HOST_PORT: "8080"
@@ -34,6 +35,7 @@ jobs:
       KRAKEND_AUTH_HOST: http://auth:3000
       KRAKEND_COLLAB_HOST: http://collab:3001
       KRAKEND_MEDIA_HOST: http://media:3002
+      KRAKEND_MARKETING_HOST: http://marketing:3003
       KRAKEND_ENDPOINTS_SOURCE: file
       OCI_CONFIG_HOST_DIR: /tmp/oci
       OCI_CONFIG_CONTAINER_DIR: /app/.oci
@@ -313,6 +315,7 @@ jobs:
       AUTH_DB_PASSWORD: authpassword_ci
       COLLAB_DB_PASSWORD: collabpassword_ci
       MEDIA_DB_PASSWORD: mediapassword_ci
+      MARKETING_DB_PASSWORD: marketingpassword_ci
       SMOKE_BASE_URL: "http://127.0.0.1:80"
       SMOKE_SKIP_FILE_UPLOAD: "true"
       OCI_CONFIG_HOST_DIR: /tmp/oci
