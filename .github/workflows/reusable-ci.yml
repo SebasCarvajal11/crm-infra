@@ -84,7 +84,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -105,7 +105,7 @@ jobs:
       # ── Java Setup ────────────────────────────────────────────
       - name: Setup Java
         if: inputs.language == 'java'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -358,7 +358,7 @@ jobs:
           output-file: 'sbom-${{ inputs.component }}.spdx.json'
 
       - name: Upload SBOM as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sbom-${{ inputs.component }}
           path: sbom-${{ inputs.component }}.spdx.json
