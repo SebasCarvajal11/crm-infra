@@ -206,7 +206,7 @@ get_active_version() {
   if [[ -f "$file" ]]; then
     local val
     val="$(grep "^${comp}=" "$file" | cut -d= -f2- || echo "")"
-    if [[ "$val" == Syncing* ]]; then
+    if [[ "$val" == *Syncing* ]]; then
       echo ""
       return 0
     fi
