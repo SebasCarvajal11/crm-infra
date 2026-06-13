@@ -206,6 +206,10 @@ get_active_version() {
   if [[ -f "$file" ]]; then
     local val
     val="$(grep "^${comp}=" "$file" | cut -d= -f2- || echo "")"
+    if [[ "$val" == Syncing* ]]; then
+      echo ""
+      return 0
+    fi
     if [[ "$val" == *"@"* ]]; then
       echo "${val#*@}"
     else
@@ -721,6 +725,7 @@ for svc_info in $all_services; do
   declare "${sName}_version=${target_version}"
 done
 
+validate_marketing_production_secrets
 write_runtime_env_files blue
 write_runtime_env_files green
 build_gateway_for_slot "$target_slot"
@@ -738,7 +743,6 @@ if [[ "$legacy_only_stack" == "true" ]]; then
   docker ps -aq --filter "label=com.docker.compose.project=${legacy_project}" | xargs -r docker rm -f
 fi
 
-validate_marketing_production_secrets
 start_shared_platform
 wait_for_postgres
 
