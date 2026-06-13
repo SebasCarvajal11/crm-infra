@@ -31,9 +31,16 @@ clone_or_update() {
   local repo_name="$1"
   local repo_url="https://github.com/${owner}/${repo_name}.git"
   local repo_path="${base_dir}/${repo_name}"
+  local backup_path=""
 
   if [[ "$repo_name" == "crm-marketing" ]]; then
     repo_url="https://github.com/arisocode/CIMA---Marketing-Analytics-Backend.git"
+  fi
+
+  if [[ -e "$repo_path" && ! -d "$repo_path/.git" ]]; then
+    backup_path="${repo_path}.backup.$(date +%Y%m%d%H%M%S)"
+    mv "$repo_path" "$backup_path"
+    echo "Moved non-git directory ${repo_path} to ${backup_path}"
   fi
 
   if [[ ! -d "$repo_path/.git" ]]; then
@@ -42,6 +49,11 @@ clone_or_update() {
 
   git -C "$repo_path" fetch --prune origin "$branch"
   git -C "$repo_path" checkout --force -B "$branch" "origin/$branch"
+
+  if [[ -n "$backup_path" && -f "${backup_path}/.env.production" && ! -f "${repo_path}/.env.production" ]]; then
+    cp "${backup_path}/.env.production" "${repo_path}/.env.production"
+    echo "Restored ${repo_path}/.env.production from ${backup_path}"
+  fi
 }
 
 for repo in crm-infra crm-auth crm-collab crm-media crm-frontend crm-marketing; do
