@@ -32,6 +32,10 @@ clone_or_update() {
   local repo_url="https://github.com/${owner}/${repo_name}.git"
   local repo_path="${base_dir}/${repo_name}"
 
+  if [[ "$repo_name" == "crm-marketing" ]]; then
+    repo_url="https://github.com/arisocode/CIMA---Marketing-Analytics-Backend.git"
+  fi
+
   if [[ ! -d "$repo_path/.git" ]]; then
     git clone "$repo_url" "$repo_path"
   fi
@@ -40,7 +44,7 @@ clone_or_update() {
   git -C "$repo_path" checkout --force -B "$branch" "origin/$branch"
 }
 
-for repo in crm-infra crm-auth crm-collab crm-media crm-frontend; do
+for repo in crm-infra crm-auth crm-collab crm-media crm-frontend crm-marketing; do
   clone_or_update "$repo"
 done
 
@@ -55,7 +59,7 @@ ensure_env_file() {
   fi
 }
 
-for repo in crm-infra crm-auth crm-collab crm-media crm-frontend; do
+for repo in crm-infra crm-auth crm-collab crm-media crm-frontend crm-marketing; do
   ensure_env_file "$repo"
 done
 

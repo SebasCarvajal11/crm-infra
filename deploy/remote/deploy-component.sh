@@ -30,6 +30,85 @@ require_env() {
   fi
 }
 
+read_env_file_value() {
+  local file="$1"
+  local key="$2"
+
+  grep -E "^${key}=" "$file" | tail -n 1 | cut -d= -f2- || true
+}
+
+is_placeholder_secret() {
+  local value="$1"
+
+  case "$value" in
+    ""|"change-me"|"changeme"|"rootpassword"|"marketingpassword"|"marketingpassword_ci"|"password"|"secret")
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+validate_marketing_production_secrets() {
+  local shared_env="$shared_env_file"
+  local marketing_env
+  local shared_password service_password service_schema service_user service_host service_port service_db
+
+  marketing_env="$(repo_path "crm-marketing")/.env.production"
+
+  if [[ ! -f "$shared_env" ]]; then
+    echo "Missing production env file: $shared_env" >&2
+    exit 1
+  fi
+
+  if [[ ! -f "$marketing_env" ]]; then
+    echo "Missing production env file: $marketing_env" >&2
+    echo "Create it from crm-marketing/.env.production.example and fill real values before deploying." >&2
+    exit 1
+  fi
+
+  shared_password="$(read_env_file_value "$shared_env" "MARKETING_DB_PASSWORD")"
+  service_password="$(read_env_file_value "$marketing_env" "DATABASE_PASSWORD")"
+  service_schema="$(read_env_file_value "$marketing_env" "DB_SCHEMA")"
+  service_user="$(read_env_file_value "$marketing_env" "DATABASE_USER")"
+  service_host="$(read_env_file_value "$marketing_env" "DATABASE_HOST")"
+  service_port="$(read_env_file_value "$marketing_env" "DATABASE_PORT")"
+  service_db="$(read_env_file_value "$marketing_env" "DATABASE_NAME")"
+
+  if is_placeholder_secret "$shared_password"; then
+    echo "MARKETING_DB_PASSWORD in $shared_env is missing or still uses a placeholder value." >&2
+    exit 1
+  fi
+
+  if is_placeholder_secret "$service_password"; then
+    echo "DATABASE_PASSWORD in $marketing_env is missing or still uses a placeholder value." >&2
+    exit 1
+  fi
+
+  if [[ "$shared_password" != "$service_password" ]]; then
+    echo "MARKETING_DB_PASSWORD and crm-marketing DATABASE_PASSWORD do not match." >&2
+    exit 1
+  fi
+
+  if [[ "$service_schema" != "schema_marketing" ]]; then
+    echo "crm-marketing DB_SCHEMA must be schema_marketing." >&2
+    exit 1
+  fi
+
+  if [[ "$service_user" != "marketing_user" ]]; then
+    echo "crm-marketing DATABASE_USER must be marketing_user." >&2
+    exit 1
+  fi
+
+  if [[ "$service_host" != "postgres_db" || "$service_port" != "5432" || "$service_db" != "crm_database" ]]; then
+    echo "crm-marketing database target must be postgres_db:5432/crm_database in production." >&2
+    exit 1
+  fi
+
+  echo "Marketing production database secrets validated for schema_marketing."
+}
+
 for cmd in git docker jq flock curl grep cut cat mkdir rm cp; do
   require_command "$cmd"
 done
@@ -152,7 +231,7 @@ sync_and_resolve_component() {
     requested_version="origin/$branch"
   fi
 
-  echo "Syncing and checking out $name to: $requested_version"
+  echo "Syncing and checking out $name to: $requested_version" >&2
   ensure_repo "$dir"
   git -C "$dir" fetch --prune origin "$branch"
   git -C "$dir" checkout --force "$requested_version"
@@ -659,6 +738,7 @@ if [[ "$legacy_only_stack" == "true" ]]; then
   docker ps -aq --filter "label=com.docker.compose.project=${legacy_project}" | xargs -r docker rm -f
 fi
 
+validate_marketing_production_secrets
 start_shared_platform
 wait_for_postgres
 
