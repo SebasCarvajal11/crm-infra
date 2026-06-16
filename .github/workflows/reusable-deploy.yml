@@ -89,7 +89,6 @@ jobs:
             fi; \
             git -C '$DEPLOY_BASE_DIR/crm-infra' fetch --prune origin '$DEPLOY_BRANCH'; \
             git -C '$DEPLOY_BASE_DIR/crm-infra' checkout --force -B '$DEPLOY_BRANCH' 'origin/$DEPLOY_BRANCH'; \
-            chmod +x '$DEPLOY_BASE_DIR/crm-infra/deploy/remote/bootstrap-server.sh' '$DEPLOY_BASE_DIR/crm-infra/deploy/remote/deploy-component.sh'; \
             export DEPLOY_BASE_DIR='$DEPLOY_BASE_DIR'; \
             export DEPLOY_BRANCH='$DEPLOY_BRANCH'; \
             export GITHUB_OWNER='$INFRA_REPOSITORY_OWNER'; \
