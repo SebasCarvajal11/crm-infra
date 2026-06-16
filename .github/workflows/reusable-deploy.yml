@@ -24,6 +24,11 @@ on:
         description: Custom health check URL override
         required: false
         type: string
+      infra_owner:
+        description: GitHub owner of the crm-infra repository
+        required: false
+        default: SebasCarvajal11
+        type: string
     secrets:
       DEPLOY_SSH_HOST:
         required: true
@@ -74,20 +79,20 @@ jobs:
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
           DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
           DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
-          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          INFRA_REPOSITORY_OWNER: ${{ inputs.infra_owner }}
         run: |
           ssh -i ~/.ssh/id_ed25519 -p "${DEPLOY_SSH_PORT:-22}" -o StrictHostKeyChecking=yes "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" \
             "set -euo pipefail; \
             mkdir -p '$DEPLOY_BASE_DIR'; \
             if [ ! -d '$DEPLOY_BASE_DIR/crm-infra/.git' ]; then \
-              git clone 'https://github.com/$GITHUB_REPOSITORY_OWNER/crm-infra.git' '$DEPLOY_BASE_DIR/crm-infra'; \
+              git clone 'https://github.com/$INFRA_REPOSITORY_OWNER/crm-infra.git' '$DEPLOY_BASE_DIR/crm-infra'; \
             fi; \
             git -C '$DEPLOY_BASE_DIR/crm-infra' fetch --prune origin '$DEPLOY_BRANCH'; \
             git -C '$DEPLOY_BASE_DIR/crm-infra' checkout --force -B '$DEPLOY_BRANCH' 'origin/$DEPLOY_BRANCH'; \
             chmod +x '$DEPLOY_BASE_DIR/crm-infra/deploy/remote/bootstrap-server.sh' '$DEPLOY_BASE_DIR/crm-infra/deploy/remote/deploy-component.sh'; \
             export DEPLOY_BASE_DIR='$DEPLOY_BASE_DIR'; \
             export DEPLOY_BRANCH='$DEPLOY_BRANCH'; \
-            export GITHUB_OWNER='$GITHUB_REPOSITORY_OWNER'; \
+            export GITHUB_OWNER='$INFRA_REPOSITORY_OWNER'; \
             export COMPOSE_FILE_OVERRIDE='${{ inputs.composeFile }}'; \
             export ENV_FILE_OVERRIDE='${{ inputs.envFile }}'; \
             export HEALTH_CHECK_URL_OVERRIDE='${{ inputs.healthCheckUrl }}'; \
