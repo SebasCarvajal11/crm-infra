@@ -1,0 +1,91 @@
+services:
+  postgres_db:
+    build:
+      context: .
+      dockerfile: ./scripts/Postgres.dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: rootpassword
+      POSTGRES_DB: crm_database
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:-authpassword}
+      COLLAB_DB_PASSWORD: ${COLLAB_DB_PASSWORD:-collabpassword}
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:-mediapassword}
+      MARKETING_DB_PASSWORD: ${MARKETING_DB_PASSWORD:-marketingpassword}
+    ports:
+      - ${POSTGRES_HOST_PORT:-15432}:5432
+    volumes:
+      - postgres_data_marketing:/var/lib/postgresql/data
+      - ./scripts/00-init-service-schemas.sh:/docker-entrypoint-initdb.d/00-init-service-schemas.sh:ro
+      - ./registry:/registry:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d crm_database"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - shared_backplane
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --appendfsync everysec
+    ports:
+      - ${REDIS_HOST_PORT:-16379}:6379
+    volumes:
+      - redis_data_marketing:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - shared_backplane
+
+  krakend-config:
+    image: ${NODE_IMAGE:-node:22-alpine}
+    init: true
+    working_dir: /workspace
+    environment:
+      CRM_GATEWAY_SERVICES: auth,marketing
+      KRAKEND_AUTH_HOST: http://host.docker.internal:3000
+      KRAKEND_MARKETING_HOST: http://host.docker.internal:3003
+      KRAKEND_ENDPOINTS_SOURCE: file
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./gateway:/workspace/gateway:ro
+      - ./registry:/workspace/registry:ro
+      - ../crm-auth/gateway/gateway.manifest.json:/workspace/crm-auth/gateway/gateway.manifest.json:ro
+      - ../crm-marketing/gateway/gateway.manifest.json:/workspace/crm-marketing/gateway/gateway.manifest.json:ro
+      - krakend_config_marketing:/output
+    command: ["node", "gateway/build-krakend.mjs", "--output", "/output/krakend.json"]
+    networks:
+      - shared_backplane
+
+  api-gateway:
+    image: ${KRAKEND_IMAGE:-devopsfaith/krakend:2.9}
+    restart: unless-stopped
+    ports:
+      - ${GATEWAY_HOST_PORT:-18080}:8080
+    volumes:
+      - krakend_config_marketing:/etc/krakend:ro
+    command: ["run", "-c", "/etc/krakend/krakend.json"]
+    depends_on:
+      krakend-config:
+        condition: service_completed_successfully
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks:
+      - shared_backplane
+
+volumes:
+  postgres_data_marketing:
+  redis_data_marketing:
+  krakend_config_marketing:
+
+networks:
+  shared_backplane:
+    name: cima-crm-marketing-local-backplane
+    driver: bridge

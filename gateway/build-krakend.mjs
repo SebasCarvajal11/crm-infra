@@ -24,7 +24,32 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUTPUT = resolve(__dirname, "..", "krakend.json");
 
 const servicesRegistryPath = resolve(__dirname, "..", "registry", "services.json");
-const servicesRegistry = JSON.parse(readFileSync(servicesRegistryPath, "utf-8"));
+const allServicesRegistry = JSON.parse(readFileSync(servicesRegistryPath, "utf-8"));
+
+function parseGatewayServices() {
+  const raw = process.env.CRM_GATEWAY_SERVICES?.trim();
+  if (!raw) return null;
+
+  const selected = raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (selected.length === 0) return null;
+
+  const knownServices = new Set(allServicesRegistry.map((service) => service.name));
+  const unknownServices = selected.filter((service) => !knownServices.has(service));
+  if (unknownServices.length > 0) {
+    throw new Error(`CRM_GATEWAY_SERVICES contiene servicios no registrados: ${unknownServices.join(", ")}`);
+  }
+
+  return new Set(selected);
+}
+
+const selectedGatewayServices = parseGatewayServices();
+const servicesRegistry = selectedGatewayServices
+  ? allServicesRegistry.filter((service) => selectedGatewayServices.has(service.name))
+  : allServicesRegistry;
 
 const hosts = {};
 for (const s of servicesRegistry) {
