@@ -39,6 +39,37 @@ $postgresPassword = if ($env:POSTGRES_PASSWORD) { $env:POSTGRES_PASSWORD } else 
 $postgresDb = if ($env:POSTGRES_DB) { $env:POSTGRES_DB } else { "crm_database" }
 $env:DB_SUPERUSER_URL = "postgresql://${postgresUser}:${postgresPassword}@localhost:${postgresPort}/${postgresDb}"
 
+function Get-LocalDatabaseUrl {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$DatabaseUrl,
+        [Parameter(Mandatory = $true)]
+        [int]$Port
+    )
+
+    $builder = [System.UriBuilder]::new($DatabaseUrl)
+    $builder.Host = "localhost"
+    $builder.Port = $Port
+    return $builder.Uri.AbsoluteUri
+}
+
+function Get-ServiceDatabaseUrl {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ServiceDir,
+        [Parameter(Mandatory = $true)]
+        [int]$Port
+    )
+
+    $envFile = Join-Path $ServiceDir ".env"
+    $databaseLine = Get-Content $envFile | Where-Object { $_ -match '^DATABASE_URL=' } | Select-Object -First 1
+    if (-not $databaseLine) {
+        throw "DATABASE_URL no está definida en $envFile"
+    }
+
+    return Get-LocalDatabaseUrl -DatabaseUrl $databaseLine.Substring("DATABASE_URL=".Length) -Port $Port
+}
+
 $servicesPath = Join-Path (Join-Path $infraRoot "registry") "services.json"
 if (-not (Test-Path $servicesPath)) {
     Write-Host "[ERROR] Registry services.json not found at $servicesPath" -ForegroundColor Red
@@ -60,7 +91,14 @@ foreach ($service in $dbServices) {
         Write-Host "[RUN] ${serviceName}: $script" -ForegroundColor Cyan
         Push-Location $serviceDir
         try {
+            $env:DATABASE_URL = Get-ServiceDatabaseUrl -ServiceDir $serviceDir -Port ([int]$postgresPort)
+            $env:DB_SCHEMA = $service.schema
             pnpm $script
+            $pnpmSucceeded = $?
+            $pnpmExitCode = $LASTEXITCODE
+            if (-not $pnpmSucceeded -or ($null -ne $pnpmExitCode -and $pnpmExitCode -ne 0)) {
+                throw "$script terminó con código de salida $pnpmExitCode"
+            }
             Write-Host "  [OK] $script completed" -ForegroundColor Green
         } catch {
             Write-Host "  [ERROR] $script failed: $_" -ForegroundColor Red
@@ -77,7 +115,14 @@ $authDir = Join-Path $workspaceRoot "crm-auth"
 if (Test-Path $authDir) {
     Push-Location $authDir
     try {
+        $env:DATABASE_URL = Get-ServiceDatabaseUrl -ServiceDir $authDir -Port ([int]$postgresPort)
+        $env:DB_SCHEMA = "schema_auth"
         pnpm db:seed
+        $pnpmSucceeded = $?
+        $pnpmExitCode = $LASTEXITCODE
+        if (-not $pnpmSucceeded -or ($null -ne $pnpmExitCode -and $pnpmExitCode -ne 0)) {
+            throw "db:seed terminó con código de salida $pnpmExitCode"
+        }
         Write-Host "  [OK] Seed completed" -ForegroundColor Green
     } catch {
         Write-Host "  [ERROR] Seed failed: $_" -ForegroundColor Red

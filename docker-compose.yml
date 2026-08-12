@@ -120,5 +120,5 @@ volumes:
   krakend_config: null
 networks:
   shared_backplane:
-    name: cima-crm-local-backplane
+    name: ${COMPOSE_PROJECT_NAME:-cima_crm_local}-backplane
     driver: bridge

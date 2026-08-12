@@ -423,7 +423,7 @@ async function main() {
     .filter(s => s.manifestPath)
     .map(s => ({
       host: [hosts[s.name]],
-      url_pattern: "/api/v1/health",
+      url_pattern: s.healthPath || "/api/v1/health",
       group: s.name,
       extra_config: {
         ...extraBackendOpts(),

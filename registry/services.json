@@ -129,6 +129,7 @@
     "buildTool": "maven",
     "runtime": "java:21",
     "composeService": "marketing",
+    "healthPath": "/actuator/health",
     "manifestPath": "crm-marketing/gateway/gateway.manifest.json",
     "composeFile": "../crm-marketing/docker-compose.yml",
     "requiredSecrets": [
