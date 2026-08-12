@@ -141,3 +141,8 @@ To maintain a clean and decoupled architecture, the platform enforces a strict p
   - **Legacy Endpoints Config (Retired: 2026-06-01)**: The unvalidated `endpoints.json` files are completely replaced by validated `gateway.manifest.json` manifests.
 
 
+## Integration Change Gate
+
+- Treat the registry, service manifests, generated KrakenD configuration, and shared contracts as one versioned integration boundary.
+- Generated runtime files must be regenerated and validated, not hand-edited. A local port is configuration, never an application contract.
+- Cross-service verification must wait for health readiness and must report asynchronous command timeouts separately from deterministic contract failures.

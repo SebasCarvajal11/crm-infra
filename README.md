@@ -274,3 +274,9 @@ El deployer dinámico se integra con el registro automáticamente:
 ```bash
 ./deploy/remote/deploy-component.sh <nombre>
 ```
+
+## Contrato de integración de la plataforma
+
+`registry/services.json` registra la topología; los `gateway.manifest.json` de cada servicio describen el borde HTTP; `cima-contracts` describe los eventos y comandos de Redis Streams. Ninguna de estas fuentes se reemplaza con rutas o puertos codificados en consumidores.
+
+Antes de un cambio transversal, validar en este orden: `pnpm registry:validate`, `pnpm gateway:build`, validaciones de manifest/OpenAPI de cada servicio y sus contratos Hurl. Para el stack local, `.env.docker` define los puertos publicados; el runner Hurl los descubre desde ese archivo o desde `GATEWAY_URL`, evitando supuestos de puerto fijo.
