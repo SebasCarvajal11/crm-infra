@@ -4,7 +4,20 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { glob } from 'node:fs/promises'
 
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:18080'
+function getGatewayUrl(): string {
+  if (process.env.GATEWAY_URL) return process.env.GATEWAY_URL
+
+  const dockerEnvPath = path.resolve(__dirname, '../.env.docker')
+  if (fs.existsSync(dockerEnvPath)) {
+    const port = fs.readFileSync(dockerEnvPath, 'utf-8')
+      .match(/^GATEWAY_HOST_PORT=(\d+)$/m)?.[1]
+    if (port) return `http://localhost:${port}`
+  }
+
+  return 'http://localhost:18080'
+}
+
+const GATEWAY_URL = getGatewayUrl()
 const TEST_SUFFIX = `hurl_${Date.now()}`
 const LOGIN_IP = `10.0.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`
 
@@ -106,6 +119,10 @@ async function runHurlFile(file: string, service: string): Promise<HurlResult> {
     '--variable', `CLIENT_EMAIL=${CLIENT_EMAIL}`,
     '--variable', `CLIENT_PASSWORD=${CLIENT_PASSWORD}`,
     '--variable', `TEST_SUFFIX=${TEST_SUFFIX}`,
+    '--variable', 'identity_me_endpoint=/api/v1/identity/me',
+    '--variable', 'register_worker_endpoint=/api/v1/admin/workers',
+    '--variable', 'invite_client_endpoint=/api/v1/admin/clients/invite',
+    '--variable', 'logout_endpoint=/api/v1/identity/logout',
     `"${file}"`,
   ]
 

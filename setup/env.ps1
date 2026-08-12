@@ -14,20 +14,46 @@ $infraRoot = Split-Path -Parent $PSScriptRoot
 $workspaceRoot = Split-Path -Parent $infraRoot
 
 # ── Defaults ────────────────────────────────────────────────────────────────
-$postgresPort = if ($env:POSTGRES_HOST_PORT) { $env:POSTGRES_HOST_PORT } else { "15432" }
-$redisPort = if ($env:REDIS_HOST_PORT) { $env:REDIS_HOST_PORT } else { "16379" }
-$gatewayPort = if ($env:GATEWAY_HOST_PORT) { $env:GATEWAY_HOST_PORT } else { "18080" }
+$dockerEnvPath = Join-Path $infraRoot ".env.docker"
+
+function Get-InfraEnvValue($key, $fallback) {
+    $processValue = [Environment]::GetEnvironmentVariable($key)
+    if ($processValue) { return $processValue }
+
+    if (Test-Path $dockerEnvPath) {
+        $match = Get-Content $dockerEnvPath | Where-Object { $_ -match "^$([regex]::Escape($key))=" } | Select-Object -First 1
+        if ($match) { return ($match -replace "^$([regex]::Escape($key))=", "").Trim() }
+    }
+
+    return $fallback
+}
+
+$postgresPort = Get-InfraEnvValue "POSTGRES_HOST_PORT" "15432"
+$redisPort = Get-InfraEnvValue "REDIS_HOST_PORT" "16379"
+$gatewayPort = Get-InfraEnvValue "GATEWAY_HOST_PORT" "18080"
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 function Set-EnvKey($filePath, $key, $value) {
-    $content = if (Test-Path $filePath) { Get-Content $filePath -Raw } else { "" }
-    if ($content -match "^$([regex]::Escape($key))=") {
-        $content = $content -replace "^$([regex]::Escape($key))=.*$", "$key=$value"
-    } else {
-        $content = $content.TrimEnd() + "`n$key=$value`n"
+    $pattern = "^$([regex]::Escape($key))="
+    $updated = $false
+    $lines = if (Test-Path $filePath) { Get-Content $filePath } else { @() }
+    $normalizedLines = foreach ($line in $lines) {
+        if ($line -match $pattern) {
+            if (-not $updated) {
+                $updated = $true
+                "$key=$value"
+            }
+            continue
+        }
+        $line
     }
-    Set-Content -Path $filePath -Value $content -NoNewline
+
+    if (-not $updated) {
+        $normalizedLines += "$key=$value"
+    }
+
+    Set-Content -Path $filePath -Value $normalizedLines
 }
 
 function Ensure-EnvFile($serviceDir, $serviceName) {
