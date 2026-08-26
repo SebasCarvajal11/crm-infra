@@ -13,6 +13,7 @@
     "dbMigrateScript": "db:migrate",
     "dbSetupScripts": [
       "db:bootstrap",
+      "db:baseline-legacy-migrations",
       "db:migrate",
       "db:partition-audit-migrate"
     ],
