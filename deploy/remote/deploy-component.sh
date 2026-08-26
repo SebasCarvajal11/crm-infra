@@ -109,6 +109,27 @@ validate_marketing_production_secrets() {
   echo "Marketing production database secrets validated for schema_marketing."
 }
 
+validate_auth_public_origin() {
+  local auth_env auth_public_url
+
+  auth_env="$(repo_path "crm-auth")/.env.production"
+  if [[ ! -f "$auth_env" ]]; then
+    echo "Missing production env file: $auth_env" >&2
+    exit 1
+  fi
+
+  auth_public_url="$(read_env_file_value "$auth_env" "APP_PUBLIC_URL")"
+  if [[ "$auth_public_url" != https://* ]]; then
+    cat >&2 <<EOF
+APP_PUBLIC_URL in $auth_env must use a real HTTPS origin before deployment.
+Blue/green deployments always start Auth in the target slot, and secure refresh
+cookies plus transactional links cannot operate safely over a public HTTP URL.
+Configure DNS and TLS first, then set APP_PUBLIC_URL=https://<your-domain>.
+EOF
+    exit 1
+  fi
+}
+
 for cmd in git docker jq flock curl grep cut cat mkdir rm cp; do
   require_command "$cmd"
 done
@@ -709,6 +730,10 @@ if [[ -n "$previous_slot" ]]; then
 else
   target_slot="blue"
 fi
+
+# All deployments start Auth in the target slot. Validate this prerequisite
+# before mutating repositories, images, migrations, or public traffic.
+validate_auth_public_origin
 
 # Resolve the requested version for the active component being deployed
 requested_version=""
