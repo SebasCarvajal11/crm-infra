@@ -517,7 +517,10 @@ write_runtime_env_files() {
 
 start_shared_platform() {
   ensure_shared_docker_primitives
-  shared_compose_cmd up -d postgres_db redis clamav-scanner edge-proxy
+  # postgres_db uses a small custom image because the idempotent schema
+  # bootstrap depends on jq. Build it when the shared platform is started so
+  # a fresh host cannot silently start an image without that dependency.
+  shared_compose_cmd up -d --build postgres_db redis clamav-scanner edge-proxy
 }
 
 wait_for_postgres() {
@@ -611,7 +614,7 @@ stop_slot_workers() {
     APP_SLOT="$slot" \
     GATEWAY_SLOT_HOST_PORT="$gateway_port" \
     FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-    docker compose -p "$project" -f "$slot_compose" stop auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
+    docker compose -p "$project" -f "$slot_compose" stop auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
   fi
 }
 
@@ -625,9 +628,9 @@ start_slot_workers() {
   APP_SLOT="$slot" \
   GATEWAY_SLOT_HOST_PORT="$gateway_port" \
   FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-  docker compose -p "$project" -f "$slot_compose" up -d auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
+  docker compose -p "$project" -f "$slot_compose" up -d auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
 
-  wait_for_compose_services_running "$slot" auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
+  wait_for_compose_services_running "$slot" auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
 }
 
 destroy_slot() {
