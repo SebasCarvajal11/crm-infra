@@ -12,6 +12,11 @@ on:
         required: false
         default: main
         type: string
+      deploy_version:
+        description: Immutable commit SHA validated by CI for a component deployment
+        required: false
+        default: ""
+        type: string
       composeFile:
         description: Custom compose file path override
         required: false
@@ -48,7 +53,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-deploy-${{ inputs.component }}
+  # La plataforma, las migraciones y el corte de tráfico son compartidos.
+  # Serializar cualquier componente evita carreras entre dos despliegues válidos.
+  group: production-deploy
   cancel-in-progress: false
 
 jobs:
@@ -70,11 +77,22 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${DEPLOY_SSH_PORT:-22}" -H "$DEPLOY_SSH_HOST" >> ~/.ssh/known_hosts
 
+      - name: Validate immutable deployment version
+        shell: bash
+        env:
+          DEPLOY_VERSION: ${{ inputs.deploy_version }}
+        run: |
+          if [[ -n "$DEPLOY_VERSION" && ! "$DEPLOY_VERSION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "deploy_version must be a full Git commit SHA." >&2
+            exit 1
+          fi
+
       - name: Bootstrap and deploy
         shell: bash
         env:
           COMPONENT: ${{ inputs.component }}
           DEPLOY_BRANCH: ${{ inputs.deploy_branch }}
+          DEPLOY_VERSION: ${{ inputs.deploy_version }}
           DEPLOY_BASE_DIR: ${{ secrets.DEPLOY_BASE_DIR }}
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
           DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
@@ -91,6 +109,7 @@ jobs:
             git -C '$DEPLOY_BASE_DIR/crm-infra' checkout --force -B '$DEPLOY_BRANCH' 'origin/$DEPLOY_BRANCH'; \
             export DEPLOY_BASE_DIR='$DEPLOY_BASE_DIR'; \
             export DEPLOY_BRANCH='$DEPLOY_BRANCH'; \
+            export DEPLOY_VERSION='$DEPLOY_VERSION'; \
             export GITHUB_OWNER='$INFRA_REPOSITORY_OWNER'; \
             export COMPOSE_FILE_OVERRIDE='${{ inputs.composeFile }}'; \
             export ENV_FILE_OVERRIDE='${{ inputs.envFile }}'; \
