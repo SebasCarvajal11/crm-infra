@@ -13,7 +13,7 @@
     "dbMigrateScript": "db:migrate",
     "dbSetupScripts": [
       "db:bootstrap",
-      "db:push",
+      "db:migrate",
       "db:partition-audit-migrate"
     ],
     "requiredSecrets": [
@@ -59,7 +59,7 @@
     "dbMigrateScript": "db:migrate",
     "dbSetupScripts": [
       "db:bootstrap",
-      "db:push"
+      "db:migrate"
     ],
     "requiredSecrets": [
       "SERVICE_JWT_PRIVATE_KEY",
