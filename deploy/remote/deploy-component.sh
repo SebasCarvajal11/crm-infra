@@ -525,6 +525,15 @@ start_shared_platform() {
   shared_compose_cmd up -d --build postgres_db redis clamav-scanner edge-proxy
 }
 
+reconcile_service_database_access() {
+  # PostgreSQL only evaluates docker-entrypoint-initdb.d on a pristine volume.
+  # Re-run the idempotent declarative bootstrap on every deployment so upgrades
+  # to role ownership, grants, and default privileges also reach existing hosts.
+  echo "Reconciling declared database roles, ownership, and privileges..."
+  shared_compose_cmd exec -T postgres_db sh \
+    /docker-entrypoint-initdb.d/00-init-service-schemas.sh
+}
+
 wait_for_postgres() {
   local attempts="${1:-30}"
   local sleep_seconds="${2:-2}"
@@ -755,6 +764,8 @@ set -a
 # shellcheck disable=SC1090
 source "$shared_env_file"
 set +a
+
+reconcile_service_database_access
 
 db_pass="${POSTGRES_PASSWORD:-rootpassword}"
 superuser_url=""
