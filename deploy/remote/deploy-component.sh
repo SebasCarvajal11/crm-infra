@@ -351,9 +351,11 @@ append_csp_sources() {
 
 render_edge_config() {
   local frontend_port="$1"
-  local connect_src img_src
+  local connect_src img_src style_src font_src
   connect_src="$(append_csp_sources "connect-src 'self'" "${CSP_CONNECT_SRC_EXTRA:-}")"
   img_src="$(append_csp_sources "img-src 'self' data: blob:" "${CSP_IMG_SRC_EXTRA:-}")"
+  style_src="$(append_csp_sources "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com" "${CSP_STYLE_SRC_EXTRA:-}")"
+  font_src="$(append_csp_sources "font-src 'self' data: https://fonts.gstatic.com" "${CSP_FONT_SRC_EXTRA:-}")"
   cat > "$runtime_dir/edge.conf" <<EOF
 server {
     listen 80;
@@ -363,7 +365,7 @@ server {
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; ${img_src}; font-src 'self' data:; ${connect_src}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' blob:; ${style_src}; ${img_src}; ${font_src}; ${connect_src}; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
     location / {
         proxy_pass http://127.0.0.1:${frontend_port};
