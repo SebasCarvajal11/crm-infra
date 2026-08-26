@@ -42,6 +42,30 @@ services:
         condition: service_healthy
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
+  auth-email-outbox-worker:
+    build:
+      context: ../crm-auth
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
+    restart: always
+    command:
+      - pnpm
+      - worker:email-outbox
+    env_file:
+      - ../crm-auth/.env.production
+      - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
+    environment:
+      CONTAINER_MODE: worker
+    networks:
+      - default
+      - shared_backplane
+    depends_on:
+      auth:
+        condition: service_healthy
+    volumes:
+      - /opt/cima/secrets:/opt/cima/secrets:ro
   auth-identity-outbox-worker:
     build:
       context: ../crm-auth

@@ -27,6 +27,10 @@
         "command": ["pnpm", "worker:email"]
       },
       {
+        "name": "auth-email-outbox-worker",
+        "command": ["pnpm", "worker:email-outbox"]
+      },
+      {
         "name": "auth-identity-outbox-worker",
         "command": ["pnpm", "worker:identity-outbox"]
       },
