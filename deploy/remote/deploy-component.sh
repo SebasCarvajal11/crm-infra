@@ -362,7 +362,7 @@ dump_logs() {
     APP_SLOT="$target_slot" \
     GATEWAY_SLOT_HOST_PORT="$(slot_gateway_port "$target_slot")" \
     FRONTEND_SLOT_HOST_PORT="$(slot_frontend_port "$target_slot")" \
-    docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" logs --tail=150 auth media collab marketing api-gateway frontend auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
+    docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" logs --tail=150 auth media collab marketing api-gateway frontend auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker || true
   fi
   if [[ -n "$previous_slot" && "$previous_slot" != "$target_slot" ]]; then
     APP_SLOT="$previous_slot" \
@@ -659,7 +659,7 @@ stop_slot_workers() {
     APP_SLOT="$slot" \
     GATEWAY_SLOT_HOST_PORT="$gateway_port" \
     FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-    docker compose -p "$project" -f "$slot_compose" stop auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
+    docker compose -p "$project" -f "$slot_compose" stop auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker || true
   fi
 }
 
@@ -673,9 +673,9 @@ start_slot_workers() {
   APP_SLOT="$slot" \
   GATEWAY_SLOT_HOST_PORT="$gateway_port" \
   FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-  docker compose -p "$project" -f "$slot_compose" up -d --build auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
+  docker compose -p "$project" -f "$slot_compose" up -d --build auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker
 
-  wait_for_compose_services_running "$slot" auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
+  wait_for_compose_services_running "$slot" auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker
 }
 
 destroy_slot() {
