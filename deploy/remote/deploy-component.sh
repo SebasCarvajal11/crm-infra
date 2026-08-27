@@ -673,7 +673,7 @@ start_slot_workers() {
   APP_SLOT="$slot" \
   GATEWAY_SLOT_HOST_PORT="$gateway_port" \
   FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-  docker compose -p "$project" -f "$slot_compose" up -d auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
+  docker compose -p "$project" -f "$slot_compose" up -d --build auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
 
   wait_for_compose_services_running "$slot" auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
 }
