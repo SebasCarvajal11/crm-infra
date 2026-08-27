@@ -110,7 +110,7 @@ validate_marketing_production_secrets() {
 }
 
 validate_auth_public_origin() {
-  local auth_env auth_public_url
+  local auth_env auth_public_url auth_app_env
 
   auth_env="$(repo_path "crm-auth")/.env.production"
   if [[ ! -f "$auth_env" ]]; then
@@ -119,6 +119,19 @@ validate_auth_public_origin() {
   fi
 
   auth_public_url="$(read_env_file_value "$auth_env" "APP_PUBLIC_URL")"
+  auth_app_env="$(read_env_file_value "$auth_env" "APP_ENV")"
+  auth_app_env="${auth_app_env:-production}"
+
+  if [[ "$auth_app_env" == "staging" ]]; then
+    echo "Auth is deploying in staging; HTTP links are permitted for isolated tests."
+    return 0
+  fi
+
+  if [[ "$auth_app_env" != "production" ]]; then
+    echo "APP_ENV in $auth_env must be staging or production for a managed deployment." >&2
+    exit 1
+  fi
+
   if [[ "$auth_public_url" != https://* ]]; then
     cat >&2 <<EOF
 APP_PUBLIC_URL in $auth_env must use a real HTTPS origin before deployment.
