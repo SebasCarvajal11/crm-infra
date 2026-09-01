@@ -143,7 +143,7 @@ function generateLocalCompose() {
     },
     networks: {
       shared_backplane: {
-        name: "cima-crm-local-backplane",
+        name: "${COMPOSE_PROJECT_NAME:-cima-crm-local}-backplane",
         driver: "bridge"
       }
     }
