@@ -258,9 +258,13 @@ sync_and_resolve_component() {
   local name="$1"
   local dir="$2"
   local requested_version="${3:-}"
+  local preserve_active_version="${4:-false}"
 
-  # If no version was explicitly requested, try to get it from the previous slot's registry
-  if [[ -z "$requested_version" && -n "${previous_slot:-}" ]]; then
+  # Only components that are not part of this deployment inherit the active
+  # revision from the previous slot. A requested component without an explicit
+  # SHA must resolve to origin/$branch; otherwise a manual `full` deployment
+  # recreates the previously active release instead of publishing main.
+  if [[ -z "$requested_version" && "$preserve_active_version" == "true" && -n "${previous_slot:-}" ]]; then
     requested_version="$(get_active_version "$previous_slot" "$name")"
   fi
 
@@ -769,9 +773,9 @@ for svc_info in $all_services; do
   sDir="${!sDirVar}"
   
   if [[ "$component" == "$sName" || "$component" == "full" ]]; then
-    target_version="$(sync_and_resolve_component "$sName" "$sDir" "$requested_version")"
+    target_version="$(sync_and_resolve_component "$sName" "$sDir" "$requested_version" false)"
   else
-    target_version="$(sync_and_resolve_component "$sName" "$sDir" "")"
+    target_version="$(sync_and_resolve_component "$sName" "$sDir" "" true)"
   fi
   
   declare "${sName}_version=${target_version}"
