@@ -13,7 +13,8 @@
     "dbMigrateScript": "db:migrate",
     "dbSetupScripts": [
       "db:bootstrap",
-      "db:push",
+      "db:baseline-legacy-migrations",
+      "db:migrate",
       "db:partition-audit-migrate"
     ],
     "requiredSecrets": [
@@ -25,6 +26,10 @@
       {
         "name": "auth-email-worker",
         "command": ["pnpm", "worker:email"]
+      },
+      {
+        "name": "auth-email-outbox-worker",
+        "command": ["pnpm", "worker:email-outbox"]
       },
       {
         "name": "auth-identity-outbox-worker",
@@ -55,7 +60,7 @@
     "dbMigrateScript": "db:migrate",
     "dbSetupScripts": [
       "db:bootstrap",
-      "db:push"
+      "db:migrate"
     ],
     "requiredSecrets": [
       "SERVICE_JWT_PRIVATE_KEY",

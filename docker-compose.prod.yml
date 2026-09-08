@@ -1,6 +1,9 @@
 services:
   postgres_db:
-    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: ./scripts/Postgres.dockerfile
+    image: cima-postgres:16-jq
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-root}
@@ -15,6 +18,7 @@ services:
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
       - ./scripts/00-init-service-schemas.sh:/docker-entrypoint-initdb.d/00-init-service-schemas.sh:ro
+      - ./registry:/registry:ro
     networks:
       - shared_backplane
     healthcheck:

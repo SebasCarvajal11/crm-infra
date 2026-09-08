@@ -155,6 +155,16 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "${role}" IN SCHEMA "${schema}"
   GRANT ${seq_grants}   ON SEQUENCES TO "${role}";
 ALTER DEFAULT PRIVILEGES FOR ROLE "${role}" IN SCHEMA "${schema}"
   GRANT ${fn_grants}    ON FUNCTIONS TO "${role}";
+
+-- Migrations can be applied by the infrastructure owner before ownership is
+-- transferred to the service role. Keep the service access contract intact for
+-- objects created through that path as well.
+ALTER DEFAULT PRIVILEGES FOR ROLE "${POSTGRES_USER}" IN SCHEMA "${schema}"
+  GRANT ${table_grants} ON TABLES    TO "${role}";
+ALTER DEFAULT PRIVILEGES FOR ROLE "${POSTGRES_USER}" IN SCHEMA "${schema}"
+  GRANT ${seq_grants}   ON SEQUENCES TO "${role}";
+ALTER DEFAULT PRIVILEGES FOR ROLE "${POSTGRES_USER}" IN SCHEMA "${schema}"
+  GRANT ${fn_grants}    ON FUNCTIONS TO "${role}";
 SQL
 
   echo "✓ Bootstrap complete for service=$service"

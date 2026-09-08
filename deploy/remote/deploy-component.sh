@@ -109,6 +109,40 @@ validate_marketing_production_secrets() {
   echo "Marketing production database secrets validated for schema_marketing."
 }
 
+validate_auth_public_origin() {
+  local auth_env auth_public_url auth_app_env
+
+  auth_env="$(repo_path "crm-auth")/.env.production"
+  if [[ ! -f "$auth_env" ]]; then
+    echo "Missing production env file: $auth_env" >&2
+    exit 1
+  fi
+
+  auth_public_url="$(read_env_file_value "$auth_env" "APP_PUBLIC_URL")"
+  auth_app_env="$(read_env_file_value "$auth_env" "APP_ENV")"
+  auth_app_env="${auth_app_env:-production}"
+
+  if [[ "$auth_app_env" == "staging" ]]; then
+    echo "Auth is deploying in staging; HTTP links are permitted for isolated tests."
+    return 0
+  fi
+
+  if [[ "$auth_app_env" != "production" ]]; then
+    echo "APP_ENV in $auth_env must be staging or production for a managed deployment." >&2
+    exit 1
+  fi
+
+  if [[ "$auth_public_url" != https://* ]]; then
+    cat >&2 <<EOF
+APP_PUBLIC_URL in $auth_env must use a real HTTPS origin before deployment.
+Blue/green deployments always start Auth in the target slot, and secure refresh
+cookies plus transactional links cannot operate safely over a public HTTP URL.
+Configure DNS and TLS first, then set APP_PUBLIC_URL=https://<your-domain>.
+EOF
+    exit 1
+  fi
+}
+
 for cmd in git docker jq flock curl grep cut cat mkdir rm cp; do
   require_command "$cmd"
 done
@@ -224,9 +258,13 @@ sync_and_resolve_component() {
   local name="$1"
   local dir="$2"
   local requested_version="${3:-}"
+  local preserve_active_version="${4:-false}"
 
-  # If no version was explicitly requested, try to get it from the previous slot's registry
-  if [[ -z "$requested_version" && -n "${previous_slot:-}" ]]; then
+  # Only components that are not part of this deployment inherit the active
+  # revision from the previous slot. A requested component without an explicit
+  # SHA must resolve to origin/$branch; otherwise a manual `full` deployment
+  # recreates the previously active release instead of publishing main.
+  if [[ -z "$requested_version" && "$preserve_active_version" == "true" && -n "${previous_slot:-}" ]]; then
     requested_version="$(get_active_version "$previous_slot" "$name")"
   fi
 
@@ -328,7 +366,7 @@ dump_logs() {
     APP_SLOT="$target_slot" \
     GATEWAY_SLOT_HOST_PORT="$(slot_gateway_port "$target_slot")" \
     FRONTEND_SLOT_HOST_PORT="$(slot_frontend_port "$target_slot")" \
-    docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" logs --tail=150 auth media collab marketing api-gateway frontend auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
+    docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" logs --tail=150 auth media collab marketing api-gateway frontend auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker || true
   fi
   if [[ -n "$previous_slot" && "$previous_slot" != "$target_slot" ]]; then
     APP_SLOT="$previous_slot" \
@@ -351,9 +389,11 @@ append_csp_sources() {
 
 render_edge_config() {
   local frontend_port="$1"
-  local connect_src img_src
+  local connect_src img_src style_src font_src
   connect_src="$(append_csp_sources "connect-src 'self'" "${CSP_CONNECT_SRC_EXTRA:-}")"
   img_src="$(append_csp_sources "img-src 'self' data: blob:" "${CSP_IMG_SRC_EXTRA:-}")"
+  style_src="$(append_csp_sources "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com" "${CSP_STYLE_SRC_EXTRA:-}")"
+  font_src="$(append_csp_sources "font-src 'self' data: https://fonts.gstatic.com" "${CSP_FONT_SRC_EXTRA:-}")"
   cat > "$runtime_dir/edge.conf" <<EOF
 server {
     listen 80;
@@ -363,7 +403,7 @@ server {
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; ${img_src}; font-src 'self' data:; ${connect_src}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' blob:; ${style_src}; ${img_src}; ${font_src}; ${connect_src}; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
     location / {
         proxy_pass http://127.0.0.1:${frontend_port};
@@ -517,7 +557,19 @@ write_runtime_env_files() {
 
 start_shared_platform() {
   ensure_shared_docker_primitives
-  shared_compose_cmd up -d postgres_db redis clamav-scanner edge-proxy
+  # postgres_db uses a small custom image because the idempotent schema
+  # bootstrap depends on jq. Build it when the shared platform is started so
+  # a fresh host cannot silently start an image without that dependency.
+  shared_compose_cmd up -d --build postgres_db redis clamav-scanner edge-proxy
+}
+
+reconcile_service_database_access() {
+  # PostgreSQL only evaluates docker-entrypoint-initdb.d on a pristine volume.
+  # Re-run the idempotent declarative bootstrap on every deployment so upgrades
+  # to role ownership, grants, and default privileges also reach existing hosts.
+  echo "Reconciling declared database roles, ownership, and privileges..."
+  shared_compose_cmd exec -T postgres_db sh \
+    /docker-entrypoint-initdb.d/00-init-service-schemas.sh
 }
 
 wait_for_postgres() {
@@ -611,7 +663,7 @@ stop_slot_workers() {
     APP_SLOT="$slot" \
     GATEWAY_SLOT_HOST_PORT="$gateway_port" \
     FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-    docker compose -p "$project" -f "$slot_compose" stop auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker || true
+    docker compose -p "$project" -f "$slot_compose" stop auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker || true
   fi
 }
 
@@ -625,9 +677,9 @@ start_slot_workers() {
   APP_SLOT="$slot" \
   GATEWAY_SLOT_HOST_PORT="$gateway_port" \
   FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-  docker compose -p "$project" -f "$slot_compose" up -d auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
+  docker compose -p "$project" -f "$slot_compose" up -d --build auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker
 
-  wait_for_compose_services_running "$slot" auth-email-worker auth-identity-outbox-worker auth-token-cleanup-worker media-command-worker media-quarantine-scan-worker
+  wait_for_compose_services_running "$slot" auth-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker
 }
 
 destroy_slot() {
@@ -696,6 +748,10 @@ else
   target_slot="blue"
 fi
 
+# All deployments start Auth in the target slot. Validate this prerequisite
+# before mutating repositories, images, migrations, or public traffic.
+validate_auth_public_origin
+
 # Resolve the requested version for the active component being deployed
 requested_version=""
 if [[ "$component" == "infra" ]]; then
@@ -717,9 +773,9 @@ for svc_info in $all_services; do
   sDir="${!sDirVar}"
   
   if [[ "$component" == "$sName" || "$component" == "full" ]]; then
-    target_version="$(sync_and_resolve_component "$sName" "$sDir" "$requested_version")"
+    target_version="$(sync_and_resolve_component "$sName" "$sDir" "$requested_version" false)"
   else
-    target_version="$(sync_and_resolve_component "$sName" "$sDir" "")"
+    target_version="$(sync_and_resolve_component "$sName" "$sDir" "" true)"
   fi
   
   declare "${sName}_version=${target_version}"
@@ -750,6 +806,8 @@ set -a
 # shellcheck disable=SC1090
 source "$shared_env_file"
 set +a
+
+reconcile_service_database_access
 
 db_pass="${POSTGRES_PASSWORD:-rootpassword}"
 superuser_url=""
