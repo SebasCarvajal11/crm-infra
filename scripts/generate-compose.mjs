@@ -28,6 +28,7 @@ function generateLocalCompose() {
   // Construct krakend-config environment and depends_on dynamically
   const krakendEnv = {};
   const krakendDependsOn = {};
+  const krakendManifestVolumes = [];
 
   for (const s of services) {
     if (s.manifestPath) {
@@ -35,9 +36,13 @@ function generateLocalCompose() {
       krakendDependsOn[`crm-${s.name}`] = {
         condition: "service_healthy"
       };
+      const manifestDirectory = dirname(s.manifestPath).replaceAll("\\", "/");
+      krakendManifestVolumes.push(`../${manifestDirectory}:/workspace/${manifestDirectory}:ro`);
     }
   }
-  krakendEnv["KRAKEND_ENDPOINTS_SOURCE"] = "http";
+  // En local se prefieren manifiestos en vivo, pero un servicio auxiliar caído no
+  // debe impedir que el gateway regenere las rutas de los demás servicios.
+  krakendEnv["KRAKEND_ENDPOINTS_SOURCE"] = "auto";
 
   const composeObj = {
     include,
@@ -112,6 +117,7 @@ function generateLocalCompose() {
         volumes: [
           "./gateway:/workspace/gateway:ro",
           "./registry:/workspace/registry:ro",
+          ...krakendManifestVolumes,
           "krakend_config:/output"
         ],
         command: ["node", "gateway/build-krakend.mjs", "--output", "/output/krakend.json"],

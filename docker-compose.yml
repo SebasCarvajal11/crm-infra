@@ -77,10 +77,14 @@ services:
       KRAKEND_COLLAB_HOST: ${KRAKEND_COLLAB_HOST:-http://crm-collab:3001}
       KRAKEND_MEDIA_HOST: ${KRAKEND_MEDIA_HOST:-http://crm-media:3002}
       KRAKEND_MARKETING_HOST: ${KRAKEND_MARKETING_HOST:-http://crm-marketing:3003}
-      KRAKEND_ENDPOINTS_SOURCE: http
+      KRAKEND_ENDPOINTS_SOURCE: auto
     volumes:
       - ./gateway:/workspace/gateway:ro
       - ./registry:/workspace/registry:ro
+      - ../crm-auth/gateway:/workspace/crm-auth/gateway:ro
+      - ../crm-collab/gateway:/workspace/crm-collab/gateway:ro
+      - ../crm-media/gateway:/workspace/crm-media/gateway:ro
+      - ../crm-marketing/gateway:/workspace/crm-marketing/gateway:ro
       - krakend_config:/output
     command:
       - node

@@ -100,7 +100,40 @@ HTTP 200
 [Asserts]
 jsonpath "$.data" isCollection
 
-# --- 6. Obtener workspace y crear tarea ---
+# --- 6. Preparar y consultar contrato (sin solicitar firma) ---
+PUT {{base_url}}/api/v1/collab/projects/{{cross_project_id}}/contract
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+{
+  "provider_kind": "cima",
+  "provider_name": "CIMA — Centro de Innovación Multimedia y Artística",
+  "provider_tax_id": "900123456-7",
+  "provider_representative": "Representante CIMA",
+  "provider_representative_document": "1020304050",
+  "client_kind": "natural",
+  "client_name": "Cliente Cross {{TEST_SUFFIX}}",
+  "client_document": "1020304050",
+  "client_email": "cross.client.{{TEST_SUFFIX}}@cima.dev",
+  "client_phone": "3001234567",
+  "plan_name": "Servicio Cross",
+  "monthly_fee": 1500000,
+  "currency": "COP",
+  "tax_included": true,
+  "term_months": 6,
+  "service_scope": "Prestación de servicios para el proyecto de prueba cross-service.",
+  "signature_city": "Bogotá, D.C."
+}
+HTTP 200
+[Asserts]
+jsonpath "$.data.status" == "draft"
+
+GET {{base_url}}/api/v1/collab/projects/{{cross_project_id}}/contract
+Authorization: Bearer {{admin_token}}
+HTTP 200
+[Asserts]
+jsonpath "$.data.plan_name" == "Servicio Cross"
+
+# --- 7. Obtener workspace y crear tarea ---
 GET {{base_url}}/api/v1/collab/projects/{{cross_project_id}}/workspace
 Authorization: Bearer {{admin_token}}
 HTTP 200

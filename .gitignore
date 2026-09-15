@@ -13,6 +13,8 @@ build/
 out/
 .tanstack/
 *.tsbuildinfo
+.turbo/
+.vite/
 
 # Environment files
 .env
@@ -70,6 +72,7 @@ coverage/
 .nyc_output
 playwright-report/
 test-results/
+html_report*/
 
 # KrakenD and deploy runtime configurations
 gateway/output/
