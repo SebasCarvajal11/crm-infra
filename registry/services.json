@@ -24,20 +24,25 @@
     "secretRotationDays": 90,
     "workers": [
       {
-        "name": "auth-email-worker",
-        "command": ["pnpm", "worker:email"]
-      },
-      {
         "name": "auth-email-outbox-worker",
-        "command": ["pnpm", "worker:email-outbox"]
+        "command": [
+          "pnpm",
+          "worker:email-outbox"
+        ]
       },
       {
         "name": "auth-identity-outbox-worker",
-        "command": ["pnpm", "worker:identity-outbox"]
+        "command": [
+          "pnpm",
+          "worker:identity-outbox"
+        ]
       },
       {
         "name": "auth-token-cleanup-worker",
-        "command": ["pnpm", "worker:cleanup"]
+        "command": [
+          "pnpm",
+          "worker:cleanup"
+        ]
       }
     ],
     "circuitBreaker": {
@@ -70,7 +75,10 @@
     "workers": [
       {
         "name": "collab-outbox-worker",
-        "command": ["pnpm", "worker:collab-outbox"]
+        "command": [
+          "pnpm",
+          "worker:collab-outbox"
+        ]
       }
     ],
     "circuitBreaker": {
@@ -101,11 +109,24 @@
     "workers": [
       {
         "name": "media-command-worker",
-        "command": ["pnpm", "worker:media-commands"]
+        "command": [
+          "pnpm",
+          "worker:media-commands"
+        ]
       },
       {
         "name": "media-quarantine-scan-worker",
-        "command": ["pnpm", "worker:quarantine-scan"]
+        "command": [
+          "pnpm",
+          "worker:quarantine-scan"
+        ]
+      },
+      {
+        "command": [
+          "pnpm",
+          "worker:email"
+        ],
+        "name": "media-email-worker"
       }
     ],
     "circuitBreaker": {
