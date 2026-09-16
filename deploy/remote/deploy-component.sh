@@ -390,14 +390,15 @@ append_csp_sources() {
 render_edge_config() {
   local frontend_port="$1"
   local connect_src img_src style_src font_src
-  connect_src="$(append_csp_sources "connect-src 'self'" "${CSP_CONNECT_SRC_EXTRA:-}")"
-  img_src="$(append_csp_sources "img-src 'self' data: blob:" "${CSP_IMG_SRC_EXTRA:-}")"
+  connect_src="$(append_csp_sources "connect-src 'self' https://objectstorage.us-sanjose-1.oraclecloud.com" "${CSP_CONNECT_SRC_EXTRA:-}")"
+  img_src="$(append_csp_sources "img-src 'self' data: blob: https://objectstorage.us-sanjose-1.oraclecloud.com" "${CSP_IMG_SRC_EXTRA:-}")"
   style_src="$(append_csp_sources "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com" "${CSP_STYLE_SRC_EXTRA:-}")"
   font_src="$(append_csp_sources "font-src 'self' data: https://fonts.gstatic.com" "${CSP_FONT_SRC_EXTRA:-}")"
   cat > "$runtime_dir/edge.conf" <<EOF
 server {
     listen 80;
     server_name _;
+    client_max_body_size 25m;
 
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
