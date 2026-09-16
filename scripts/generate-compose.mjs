@@ -207,7 +207,14 @@ function generateSlotProdCompose() {
       environment: {
         CONTAINER_MODE: "server"
       },
-      networks: ["default", "shared_backplane"]
+      networks: {
+        default: {
+          aliases: [`crm-${s.name}`]
+        },
+        shared_backplane: {
+          aliases: [`crm-${s.name}`]
+        }
+      }
     };
 
     if (s.requiredSecrets && s.requiredSecrets.length > 0) {

@@ -14,8 +14,12 @@ services:
     environment:
       CONTAINER_MODE: server
     networks:
-      - default
-      - shared_backplane
+      default:
+        aliases:
+          - crm-auth
+      shared_backplane:
+        aliases:
+          - crm-auth
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
   auth-email-outbox-worker:
@@ -104,8 +108,12 @@ services:
     environment:
       CONTAINER_MODE: server
     networks:
-      - default
-      - shared_backplane
+      default:
+        aliases:
+          - crm-collab
+      shared_backplane:
+        aliases:
+          - crm-collab
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
   collab-outbox-worker:
@@ -146,8 +154,12 @@ services:
     environment:
       CONTAINER_MODE: server
     networks:
-      - default
-      - shared_backplane
+      default:
+        aliases:
+          - crm-media
+      shared_backplane:
+        aliases:
+          - crm-media
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
   media-command-worker:
@@ -251,8 +263,12 @@ services:
     environment:
       CONTAINER_MODE: server
     networks:
-      - default
-      - shared_backplane
+      default:
+        aliases:
+          - crm-marketing
+      shared_backplane:
+        aliases:
+          - crm-marketing
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
   api-gateway:
