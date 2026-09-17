@@ -41,7 +41,7 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
     try {
       await page.goto('/login')
       await page.getByLabel('Correo').fill('admin@cima.dev')
-      await page.getByLabel('Contrasena').fill('Admin123!')
+      await page.locator('#password').fill('Admin123!')
       await page.getByRole('button', { name: 'Entrar' }).click()
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 })
     } catch (e) {
@@ -184,7 +184,7 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
       await logout(page, context)
       await page.goto('/login')
       await page.getByLabel('Correo').fill('ana.martinez@cima.dev')
-      await page.getByLabel('Contrasena').fill('Demo123!')
+      await page.locator('#password').fill('Demo123!')
       await page.getByRole('button', { name: 'Entrar' }).click()
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 })
     } catch (e) {
@@ -268,7 +268,7 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
       await logout(page, context)
       await page.goto('/login')
       await page.getByLabel('Correo').fill('contacto@restauranteelbuensabor.com')
-      await page.getByLabel('Contrasena').fill('Demo123!')
+      await page.locator('#password').fill('Demo123!')
       await page.getByRole('button', { name: 'Entrar' }).click()
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 })
     } catch (e) {
