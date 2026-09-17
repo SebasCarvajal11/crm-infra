@@ -78,9 +78,15 @@ done
 ensure_group_permissions() {
   if getent group cima-deploy >/dev/null 2>&1; then
     chgrp -R cima-deploy "${base_dir}" 2>/dev/null || true
-    chmod -R g+rX "${base_dir}" 2>/dev/null || true
+    chmod -R g+rwX "${base_dir}" 2>/dev/null || true
+    find "${base_dir}" -type d -exec chmod g+s {} + 2>/dev/null || true
     chmod 640 "${base_dir}"/*/.env.production 2>/dev/null || true
   fi
+  for d in "${base_dir}"/*/.git; do
+    if [[ -d "$d" ]]; then
+      git -C "$d/.." config core.sharedRepository group 2>/dev/null || true
+    fi
+  done
 }
 
 ensure_group_permissions
