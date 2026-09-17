@@ -171,4 +171,10 @@ SQL
   i=$((i + 1))
 done
 
+# Permite a media_user contabilizar archivos de proyectos para métricas de OCI Object Storage
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-SQL
+  GRANT USAGE ON SCHEMA "schema_collab" TO "media_user";
+  GRANT SELECT ON "schema_collab"."project_files" TO "media_user";
+SQL
+
 echo "✓ All services bootstrapped successfully."
