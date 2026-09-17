@@ -75,6 +75,16 @@ for repo in crm-infra crm-auth crm-collab crm-media crm-frontend crm-marketing; 
   ensure_env_file "$repo"
 done
 
+ensure_group_permissions() {
+  if getent group cima-deploy >/dev/null 2>&1; then
+    chgrp -R cima-deploy "${base_dir}" 2>/dev/null || true
+    chmod -R g+rX "${base_dir}" 2>/dev/null || true
+    chmod 640 "${base_dir}"/*/.env.production 2>/dev/null || true
+  fi
+}
+
+ensure_group_permissions
+
 # --- SOPS secret decryption ---
 # If sops is available and encrypted env files exist, decrypt them
 # to overwrite the template .env.production files with real values.
