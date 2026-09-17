@@ -151,7 +151,7 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
 
     // ── Chat Externo (Cliente) ─────────────────────────────────
     try {
-      await page.getByRole('tab', { name: 'Conversacion' }).click()
+      await page.getByRole('tab', { name: /conversaci[oó]n/i }).click()
       await page.getByRole('tab', { name: 'Cliente' }).click()
       await page.getByPlaceholder(/Escribe un mensaje/i).fill('Admin: Iniciando comunicacion del proyecto smoke.')
       await page.click('button[aria-label="Enviar mensaje"]')
@@ -236,9 +236,9 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
       logError('Worker Cerrar Panel', 'Falla al cerrar panel', e)
     }
 
-    // ── Verificar chat Equipo ──────────────────────────────────
+    // ── Verificar chat de equipo ──────────────────────────────
     try {
-      await page.getByRole('tab', { name: 'Conversacion' }).click()
+      await page.getByRole('tab', { name: /conversaci[oó]n/i }).click()
       await page.getByRole('tab', { name: 'Equipo' }).click()
       await expect(page.getByText(/Tarea asignada a/)).toBeVisible()
     } catch (e) {
@@ -297,7 +297,7 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
 
     // ── Verificar chat Cliente visible ─────────────────────────
     try {
-      await page.getByRole('tab', { name: 'Conversacion' }).click()
+      await page.getByRole('tab', { name: /conversaci[oó]n/i }).click()
       await expect(page.getByText('Admin: Iniciando comunicacion del proyecto smoke.')).toBeVisible()
     } catch (e) {
       logError('Client Chat Cliente', 'El chat Cliente no es visible o no tiene mensajes', e)
