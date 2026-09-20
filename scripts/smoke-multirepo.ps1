@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$GatewayHostPort = if ($env:GATEWAY_HOST_PORT) { $env:GATEWAY_HOST_PORT } else { "18080" }
+$GatewayHostPort = if ($env:GATEWAY_HOST_PORT) { $env:GATEWAY_HOST_PORT } else { "28080" }
 $FrontendPort = if ($env:FRONTEND_PORT) { $env:FRONTEND_PORT } else { "5173" }
 $GatewayBaseUrl = "http://localhost:$GatewayHostPort"
 $FrontendBaseUrl = "http://127.0.0.1:$FrontendPort"

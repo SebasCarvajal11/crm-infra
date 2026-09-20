@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 
 $infraRoot = Split-Path -Parent $PSScriptRoot
 $workspaceRoot = Split-Path -Parent $infraRoot
-$postgresPort = if ($env:POSTGRES_HOST_PORT) { $env:POSTGRES_HOST_PORT } else { "15432" }
+$postgresPort = if ($env:POSTGRES_HOST_PORT) { $env:POSTGRES_HOST_PORT } else { "25432" }
 
 # -- Wait for Postgres -------------------------------------------------------
 Write-Host "[INFO] Waiting for PostgreSQL on localhost:$postgresPort..." -ForegroundColor Cyan

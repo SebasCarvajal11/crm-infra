@@ -29,7 +29,11 @@ KrakenD actúa como el **único punto de entrada HTTP** para todas las peticione
 
 ## 2. Generación Declarativa: `gateway/build-krakend.mjs`
 
-El archivo de configuración principal `krakend.json` **nunca se edita a mano**. Es compilado de forma determinista mediante el script `gateway/build-krakend.mjs`:
+El archivo de configuración principal `krakend.json` **nunca se edita a mano**. Es compilado de forma determinista mediante el conjunto modular de scripts en `gateway/`:
+- `gateway/build-krakend.mjs`: Orquestador principal y punto de entrada CLI.
+- `gateway/endpoint-builder.mjs`: Constructores de backends, validador JWT, circuit breakers, caching y rate limiters.
+- `gateway/manifest-loader.mjs`: Carga resiliente de `gateway.manifest.json` vía HTTP o fallback de disco.
+- `gateway/manifest-comparator.mjs`: Comparador de versiones y detección de *breaking changes* (`--compare`).
 
 ```bash
 pnpm gateway:build

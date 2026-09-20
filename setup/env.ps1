@@ -28,9 +28,9 @@ function Get-InfraEnvValue($key, $fallback) {
     return $fallback
 }
 
-$postgresPort = Get-InfraEnvValue "POSTGRES_HOST_PORT" "15432"
-$redisPort = Get-InfraEnvValue "REDIS_HOST_PORT" "16379"
-$gatewayPort = Get-InfraEnvValue "GATEWAY_HOST_PORT" "18080"
+$postgresPort = Get-InfraEnvValue "POSTGRES_HOST_PORT" "25432"
+$redisPort = Get-InfraEnvValue "REDIS_HOST_PORT" "26379"
+$gatewayPort = Get-InfraEnvValue "GATEWAY_HOST_PORT" "28080"
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -112,7 +112,6 @@ foreach ($s in $servicesRegistry) {
         # Backend microservices
         Set-EnvKey $envFile "PORT" "$($s.port)"
         Set-EnvKey $envFile "REDIS_URL" "redis://localhost:$redisPort"
-        Set-EnvKey $envFile "TRUST_GATEWAY_JWT_HEADERS" "false"
         Set-EnvKey $envFile "SERVICE_VERSION" (Get-PackageVersion $sDir)
 
         if ($s.schema) {

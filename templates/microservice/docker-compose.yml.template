@@ -12,7 +12,6 @@ services:
       DB_SCHEMA: schema_{{SERVICE_NAME}}
       PORT: {{SERVICE_PORT}}
       REDIS_URL: redis://redis:6379
-      TRUST_GATEWAY_JWT_HEADERS: "false"
     depends_on:
       postgres_db:
         condition: service_healthy

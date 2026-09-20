@@ -529,7 +529,6 @@ write_runtime_env_files() {
     
     db_url="$(grep '^DATABASE_URL=' "$env_prod" | head -n 1 | cut -d= -f2- || echo "")"
     redis_url="$(grep '^REDIS_URL=' "$env_prod" | head -n 1 | cut -d= -f2- || echo "")"
-    trust_gateway="$(grep '^TRUST_GATEWAY_JWT_HEADERS=' "$env_prod" | tail -n 1 | cut -d= -f2- || echo "")"
     
     semver="$(jq -r '.version // "1.0.0"' "$sDir/package.json" 2>/dev/null || echo "1.0.0")"
     db_schema="$(jq -r --arg name "$sName" '.[] | select(.name == $name) | .schema // empty' registry/services.json)"
@@ -549,9 +548,6 @@ write_runtime_env_files() {
       fi
       if [[ -n "$redis_url" ]]; then
         echo "REDIS_URL=$(container_redis_url "$redis_url")"
-      fi
-      if [[ -z "$trust_gateway" ]] && grep -q '^GATEWAY_TRUST_SECRET=' "$env_prod"; then
-        echo "TRUST_GATEWAY_JWT_HEADERS=true"
       fi
       echo "SERVICE_VERSION=${semver}"
     } >> "$dest_env"

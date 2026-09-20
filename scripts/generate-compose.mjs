@@ -60,7 +60,7 @@ function generateLocalCompose() {
           ...buildLocalDbPasswordEnv()
         },
         ports: [
-          "${POSTGRES_HOST_PORT:-15432}:5432"
+          "${POSTGRES_HOST_PORT:-25432}:5432"
         ],
         volumes: [
           "postgres_data:/var/lib/postgresql/data",
@@ -81,7 +81,7 @@ function generateLocalCompose() {
         restart: "unless-stopped",
         command: "redis-server --appendonly yes --appendfsync everysec",
         ports: [
-          "${REDIS_HOST_PORT:-16379}:6379"
+          "${REDIS_HOST_PORT:-26379}:6379"
         ],
         volumes: [
           "redis_data:/data"
@@ -98,7 +98,7 @@ function generateLocalCompose() {
         image: "${CLAMAV_IMAGE:-clamav/clamav-debian:1.4}",
         restart: "unless-stopped",
         ports: [
-          "${CLAMAV_HOST_PORT:-13310}:3310"
+          "${CLAMAV_HOST_PORT:-23310}:3310"
         ],
         healthcheck: {
           test: ["CMD-SHELL", "echo PING | nc localhost 3310 | grep -q PONG"],
@@ -128,7 +128,7 @@ function generateLocalCompose() {
         image: "${KRAKEND_IMAGE:-devopsfaith/krakend:2.9}",
         restart: "unless-stopped",
         ports: [
-          "${GATEWAY_HOST_PORT:-18080}:8080"
+          "${GATEWAY_HOST_PORT:-28080}:8080"
         ],
         volumes: [
           "krakend_config:/etc/krakend:ro"

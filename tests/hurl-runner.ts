@@ -14,7 +14,7 @@ function getGatewayUrl(): string {
     if (port) return `http://localhost:${port}`
   }
 
-  return 'http://localhost:18080'
+  return 'http://localhost:28080'
 }
 
 const GATEWAY_URL = getGatewayUrl()

@@ -7,7 +7,7 @@
  * Uso: tsx tests/test-seed.ts [--verify] [--create]
  */
 
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:18080'
+const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:28080'
 
 interface SeedUser {
   email: string
