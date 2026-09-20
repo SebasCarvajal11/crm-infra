@@ -1,5 +1,3 @@
-#!/usr/bin/env pwsh
-#Requires -Version 7.0
 $ErrorActionPreference = "Stop"
 
 Write-Host "Iniciando CIMA CRM local con Docker Compose..." -ForegroundColor Cyan
@@ -25,12 +23,17 @@ foreach ($envFile in $requiredEnvFiles) {
 
 docker compose --env-file .env.docker up -d --build --remove-orphans
 
+$frontendPort = if ($env:FRONTEND_HOST_PORT) { $env:FRONTEND_HOST_PORT } else { "5173" }
+$gatewayPort = if ($env:GATEWAY_HOST_PORT) { $env:GATEWAY_HOST_PORT } else { "28080" }
+$postgresPort = if ($env:POSTGRES_HOST_PORT) { $env:POSTGRES_HOST_PORT } else { "25432" }
+$redisPort = if ($env:REDIS_HOST_PORT) { $env:REDIS_HOST_PORT } else { "26379" }
+
 Write-Host ""
 Write-Host "CIMA CRM iniciado" -ForegroundColor Green
-Write-Host "  Frontend: http://localhost:$($env:FRONTEND_HOST_PORT ?? '5173')" -ForegroundColor White
-Write-Host "  Gateway:  http://localhost:$($env:GATEWAY_HOST_PORT ?? '18080')" -ForegroundColor White
-Write-Host "  Postgres: localhost:$($env:POSTGRES_HOST_PORT ?? '15432')" -ForegroundColor White
-Write-Host "  Redis:    localhost:$($env:REDIS_HOST_PORT ?? '16379')" -ForegroundColor White
+Write-Host "  Frontend: http://localhost:$frontendPort" -ForegroundColor White
+Write-Host "  Gateway:  http://localhost:$gatewayPort" -ForegroundColor White
+Write-Host "  Postgres: localhost:$postgresPort" -ForegroundColor White
+Write-Host "  Redis:    localhost:$redisPort" -ForegroundColor White
 Write-Host ""
 Write-Host "Comandos utiles:" -ForegroundColor Cyan
 Write-Host "  docker compose --env-file .env.docker ps"
