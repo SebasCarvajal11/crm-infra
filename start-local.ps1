@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "Iniciando CIMA CRM local con Docker Compose..." -ForegroundColor Cyan
 
-$repos = @("crm-auth", "crm-collab", "crm-media", "crm-frontend")
+$repos = @("crm-auth", "crm-collab", "crm-media", "crm-frontend", "crm-marketing")
 foreach ($repo in $repos) {
     if (-not (Test-Path "../$repo")) {
         throw "Repositorio hermano requerido no encontrado: ../$repo"
@@ -14,7 +14,8 @@ foreach ($repo in $repos) {
 $requiredEnvFiles = @(
     "../crm-auth/.env",
     "../crm-collab/.env",
-    "../crm-media/.env"
+    "../crm-media/.env",
+    "../crm-marketing/.env"
 )
 foreach ($envFile in $requiredEnvFiles) {
     if (-not (Test-Path $envFile)) {
@@ -22,7 +23,7 @@ foreach ($envFile in $requiredEnvFiles) {
     }
 }
 
-docker compose --env-file .env.docker up -d --build
+docker compose --env-file .env.docker up -d --build --remove-orphans
 
 Write-Host ""
 Write-Host "CIMA CRM iniciado" -ForegroundColor Green
