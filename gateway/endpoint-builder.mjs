@@ -10,9 +10,14 @@ export const PUBLIC_HEADERS_BASE = [
 export const AUTH_HEADERS_BASE = [
   "Authorization",
   "Accept",
+  "X-User-Sub",
+  "X-User-Id",
+  "X-User-Role",
+  "X-User-Email",
   "X-Forwarded-For",
   "X-Real-IP",
   "User-Agent",
+  "X-Token-Exp",
   "X-Request-Id",
   "X-Trace-Id",
 ];
