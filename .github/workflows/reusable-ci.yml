@@ -316,7 +316,14 @@ jobs:
 
       - name: Prepare schema (TypeScript)
         if: ${{ inputs.runs_db && inputs.language == 'typescript' }}
-        run: pnpm db:push
+        shell: bash
+        run: |
+          if pnpm run | grep -q "db:migrate"; then
+            pnpm db:bootstrap 2>/dev/null || true
+            pnpm db:migrate
+          else
+            pnpm db:push
+          fi
 
       - name: Prepare schema (Java Gradle)
         if: ${{ inputs.runs_db && inputs.language == 'java' && inputs.build_tool == 'gradle' }}
