@@ -190,7 +190,7 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
     try {
       await page.getByRole('tab', { name: /conversaci[oó]n/i }).click()
       await page.getByRole('tab', { name: 'Equipo' }).click()
-      await expect(page.getByText(/Tarea asignada a/)).toBeVisible()
+      await expect(page.getByRole('log', { name: 'Mensajes' }).getByText(/Tarea asignada a/)).toBeVisible()
     } catch (e) {
       ctx.logError('Worker Chat Equipo', 'El mensaje del chat Equipo no es visible', e)
     }
@@ -236,7 +236,7 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
 
     try {
       await page.getByRole('tab', { name: /conversaci[oó]n/i }).click()
-      await expect(page.getByText('Admin: Iniciando comunicacion del proyecto smoke.')).toBeVisible()
+      await expect(page.getByRole('log', { name: 'Mensajes' }).getByText('Admin: Iniciando comunicacion del proyecto smoke.')).toBeVisible()
     } catch (e) {
       ctx.logError('Client Chat Cliente', 'El chat Cliente no es visible o no tiene mensajes', e)
     }
