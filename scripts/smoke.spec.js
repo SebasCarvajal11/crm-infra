@@ -150,7 +150,7 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
 
     try {
       await page.getByRole('button', { name: 'Colaboración' }).click()
-      await page.click(`button:has-text("${ctx.projectName}")`)
+      await page.locator(`button[aria-label*="Abrir proyecto ${ctx.projectName}"]`).or(page.locator(`button:has-text("${ctx.projectName}")`).filter({ visible: true })).first().click()
       await expect(page.getByRole('heading', { name: ctx.projectName })).toBeVisible({ timeout: 10000 })
     } catch (e) {
       ctx.logError('Worker Abrir Proyecto', `Falla al abrir proyecto "${ctx.projectName}"`, e)
@@ -219,7 +219,7 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
 
     try {
       await page.getByRole('button', { name: 'Colaboración' }).click()
-      await page.click(`button:has-text("${ctx.projectName}")`)
+      await page.locator(`button[aria-label*="Abrir proyecto ${ctx.projectName}"]`).or(page.locator(`button:has-text("${ctx.projectName}")`).filter({ visible: true })).first().click()
       await expect(page.getByRole('heading', { name: ctx.projectName })).toBeVisible({ timeout: 10000 })
     } catch (e) {
       ctx.logError('Client Abrir Proyecto', `Falla al abrir proyecto "${ctx.projectName}"`, e)
