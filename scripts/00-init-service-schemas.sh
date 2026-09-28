@@ -171,20 +171,7 @@ SQL
   i=$((i + 1))
 done
 
-# Permite a media_user contabilizar archivos de proyectos para métricas de OCI Object Storage
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-SQL
-  GRANT USAGE ON SCHEMA "schema_collab" TO "media_user";
-  DO \$\$
-  BEGIN
-    IF to_regclass('schema_collab.project_files') IS NOT NULL THEN
-      EXECUTE 'GRANT SELECT ON "schema_collab"."project_files" TO "media_user"';
-    END IF;
-  END
-  \$\$;
-  ALTER DEFAULT PRIVILEGES FOR ROLE "collab_user" IN SCHEMA "schema_collab"
-    GRANT SELECT ON TABLES TO "media_user";
-  ALTER DEFAULT PRIVILEGES FOR ROLE "${POSTGRES_USER}" IN SCHEMA "schema_collab"
-    GRANT SELECT ON TABLES TO "media_user";
-SQL
+# ADR-006: Desacoplamiento estricto de esquemas. Métricas de almacenamiento de proyectos
+# son consultadas por crm-media a través del endpoint M2M HTTP de crm-collab, sin acceso SQL cruzado.
 
 echo "✓ All services bootstrapped successfully."
