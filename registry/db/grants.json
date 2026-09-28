@@ -46,5 +46,17 @@
       "sequences": ["USAGE", "SELECT", "UPDATE"],
       "functions": ["EXECUTE"]
     }
+  },
+  {
+    "service": "customers",
+    "role": "customers_user",
+    "passwordEnvVar": "CUSTOMERS_DB_PASSWORD",
+    "schema": "schema_customers",
+    "grants": {
+      "schema": ["USAGE", "CREATE"],
+      "tables": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+      "sequences": ["USAGE", "SELECT", "UPDATE"],
+      "functions": ["EXECUTE"]
+    }
   }
 ]

@@ -271,6 +271,26 @@ services:
           - crm-marketing
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
+  customers:
+    build:
+      context: ../crm-customers
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+    init: true
+    restart: always
+    env_file:
+      - ../crm-customers/.env.production
+      - ./deploy/runtime/customers.${APP_SLOT:?APP_SLOT is required}.env
+    environment:
+      CONTAINER_MODE: server
+    networks:
+      default:
+        aliases:
+          - crm-customers
+      shared_backplane:
+        aliases:
+          - crm-customers
   api-gateway:
     image: ${KRAKEND_IMAGE:-devopsfaith/krakend:2.9}
     restart: always
