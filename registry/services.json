@@ -162,29 +162,5 @@
       "MARKETING_DB_PASSWORD"
     ],
     "workers": []
-  },
-  {
-    "name": "customers",
-    "repo": "SebasCarvajal11/crm-customers",
-    "port": 3004,
-    "schema": "schema_customers",
-    "language": "typescript",
-    "runtime": "node:22",
-    "composeService": "customers",
-    "manifestPath": "crm-customers/gateway/gateway.manifest.json",
-    "composeFile": "../crm-customers/docker-compose.yml",
-    "dbInitScript": "db:bootstrap",
-    "dbMigrateScript": "db:migrate",
-    "dbSetupScripts": [
-      "db:bootstrap",
-      "db:migrate"
-    ],
-    "requiredSecrets": [],
-    "workers": [],
-    "circuitBreaker": {
-      "max_errors": 3,
-      "interval": 60,
-      "timeout": 10
-    }
   }
 ]

@@ -65,7 +65,7 @@ La infraestructura se orquesta mediante Docker Compose sobre una red interna seg
 
 1. **Instancia Única de PostgreSQL con Schemas Lógicos**:
    - En lugar de levantar múltiples contenedores de base de datos que malgasten recursos de RAM y conexiones, se utiliza un único clúster PostgreSQL 16.
-   - Cada microservicio posee su propio esquema relacional (`schema_auth`, `schema_collab`, `schema_media`, `schema_marketing`, `schema_customers`) y su propio usuario/contraseña con permisos restringidos exclusivamente a su esquema.
+   - Cada microservicio posee su propio esquema relacional (`schema_auth`, `schema_collab`, `schema_media`, `schema_marketing`) y su propio usuario/contraseña con permisos restringidos exclusivamente a su esquema.
 2. **Redis Centralizado con Persistencia AOF**:
    - Unifica la mensajería asíncrona de Redis Streams y las colas BullMQ.
    - Persistencia configurada con Append-Only File (`appendonly yes`, `appendfsync everysec`) para garantizar durabilidad ante reinicios.
