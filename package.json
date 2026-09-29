@@ -5,6 +5,7 @@
   "main": "gateway/build-krakend.mjs",
   "packageManager": "pnpm@11.1.1",
   "scripts": {
+    "test:deploy": "node --test tests/deploy-slot.test.mjs",
     "gateway:build": "node gateway/build-krakend.mjs",
     "compose:generate": "node scripts/generate-compose.mjs",
     "registry:validate": "node scripts/validate-registry.mjs",

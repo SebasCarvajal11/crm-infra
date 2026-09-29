@@ -619,34 +619,13 @@ start_slot_web() {
   gateway_port="$(slot_gateway_port "$slot")"
   frontend_port="$(slot_frontend_port "$slot")"
 
-  if [[ "$component" == "full" ]]; then
-    APP_SLOT="$slot" \
-    GATEWAY_SLOT_HOST_PORT="$gateway_port" \
-    FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-    docker compose -p "$project" -f "$slot_compose" up -d --build auth media collab marketing api-gateway frontend
-  else
-    local build_args=""
-    case "$component" in
-      auth) build_args="auth" ;;
-      collab) build_args="collab" ;;
-      media) build_args="media" ;;
-      frontend) build_args="frontend" ;;
-      marketing) build_args="marketing" ;;
-    esac
-
-    if [[ -n "$build_args" ]]; then
-      APP_SLOT="$slot" \
-      GATEWAY_SLOT_HOST_PORT="$gateway_port" \
-      FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-      docker compose -p "$project" -f "$slot_compose" up -d --build $build_args
-    fi
-
-    # Ensure all services in the slot are started (using current images/cache)
-    APP_SLOT="$slot" \
-    GATEWAY_SLOT_HOST_PORT="$gateway_port" \
-    FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-    docker compose -p "$project" -f "$slot_compose" up -d auth media collab marketing api-gateway frontend
-  fi
+  # Slot-local image names can point to releases older than the active slot.
+  # Every build context was pinned above: build all of them before cutover,
+  # reusing BuildKit layers, rather than trusting cached images from this slot.
+  APP_SLOT="$slot" \
+  GATEWAY_SLOT_HOST_PORT="$gateway_port" \
+  FRONTEND_SLOT_HOST_PORT="$frontend_port" \
+  docker compose -p "$project" -f "$slot_compose" up -d --build auth media collab marketing api-gateway frontend
 
   wait_for_http_ok "slot-${slot}-frontend" "http://127.0.0.1:${frontend_port}/"
   wait_for_http_ok "slot-${slot}-gateway" "http://127.0.0.1:${gateway_port}/api/v1/health"

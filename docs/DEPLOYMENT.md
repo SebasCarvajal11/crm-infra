@@ -46,6 +46,8 @@ Ubicado en `deploy/remote/deploy-component.sh`, es el script maestro invocado po
    - Para los demás componentes, lee `.active-versions-blue` y congela los servicios en sus versiones estables actuales (`semver@hash`).
 3. **Construcción e Inicio del Slot Inactivo**:
    - Ejecuta `docker compose -f docker-compose.slot.prod.yml up -d --build`.
+   - Construye todos los servicios web desde sus revisiones resueltas, incluso en un despliegue de un solo componente. Las imágenes tienen nombres por slot: reutilizar una imagen existente sin construir puede reintroducir una versión antigua al conmutar tráfico. BuildKit conserva la caché de capas; no se utiliza `--no-cache`.
+   - El registro de versiones indica revisiones resueltas, pero por sí solo no demuestra el contenido de una imagen. La validación operativa debe comprobar también los artefactos servidos por el proxy público.
 4. **Verificación Estricta de Salud (*Health Check Gate*)**:
    - Envía solicitudes periódicas a `/api/v1/health` de cada servicio en el nuevo slot.
    - Si algún servicio falla tras agotar los intentos, el despliegue se aborta inmediatamente y el tráfico nunca se conmuta.
@@ -58,6 +60,10 @@ Ubicado en `deploy/remote/deploy-component.sh`, es el script maestro invocado po
 ---
 
 ## 3. Procedimiento de Reversión (*Rollback*)
+
+La regresión de reconstrucción se verifica con `pnpm test:deploy`: simula publicaciones de cada componente, alternancia Blue/Green y fallos de construcción, sin modificar producción ni iniciar Docker.
+
+**Decisión (2026-09-29):** se evaluaron reconstrucción completa con caché, imágenes inmutables por SHA y construcción selectiva basada en un registro de imágenes. Se elige la primera para mantener un único flujo con los contextos Git ya fijados y evitar introducir otro registro que pueda divergir. Las etiquetas por SHA son una evolución posible si se adopta un registro de contenedores; volver a desplegar solo frontend no evita que una publicación posterior recupere una imagen antigua del otro slot.
 
 Ante cualquier anomalía detectada en producción tras un despliegue:
 

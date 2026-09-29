@@ -130,6 +130,7 @@ jobs:
         run: |
           bash -n deploy/remote/bootstrap-server.sh
           bash -n deploy/remote/deploy-component.sh
+          pnpm test:deploy
 
       - name: Checkout frontend env template
         uses: actions/checkout@v6
