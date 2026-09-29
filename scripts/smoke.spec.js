@@ -38,7 +38,7 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
 
       await dialog.locator('#cp-name').fill(ctx.projectName)
       await dialog.locator('#cp-type').click()
-      await page.getByRole('option', { name: /Campana \/ Servicio/i }).click()
+      await page.getByRole('option', { name: 'Campaña / Servicio', exact: true }).click()
 
       await dialog.getByPlaceholder('Busca por email del cliente…').fill('contacto@restauranteelbuensabor.com')
       await page.getByRole('option', { name: /contacto@restauranteelbuensabor\.com/i }).click()
