@@ -53,9 +53,10 @@ Ubicado en `deploy/remote/deploy-component.sh`, es el script maestro invocado po
    - Si algún servicio falla tras agotar los intentos, el despliegue se aborta inmediatamente y el tráfico nunca se conmuta.
 5. **Conmutación de Tráfico (*Cutover*)**:
    - Actualiza la configuración del proxy inverso (Nginx) para apuntar los upstreams al nuevo slot y recarga la configuración (`nginx -s reload`).
-6. **Actualización de Registro y Drenado**:
+6. **Actualización de Registro, Drenado y Poda**:
    - Escribe el nuevo estado en `.active-versions-green`.
-   - Detiene de forma ordenada (*graceful drain*) los contenedores del slot previo.
+   - Detiene de forma ordenada (*graceful drain*) y destruye los contenedores del slot previo.
+   - Ejecuta una poda controlada de la caché de BuildKit (`--keep-storage 5GB`) e imágenes huérfanas para asegurar un uso predecible del almacenamiento en disco.
 
 ---
 

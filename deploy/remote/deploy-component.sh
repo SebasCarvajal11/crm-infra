@@ -675,6 +675,12 @@ destroy_slot() {
   fi
 }
 
+prune_build_cache() {
+  echo "Pruning build cache beyond 5GB and dangling images..."
+  docker builder prune -f --keep-storage 5GB >/dev/null 2>&1 || true
+  docker image prune -f >/dev/null 2>&1 || true
+}
+
 rollback_if_needed() {
   local exit_code=$?
   if [[ "$cutover_completed" == "true" && -n "$previous_slot" ]]; then
@@ -895,6 +901,8 @@ printf '%s\n' "$target_slot" > "$active_slot_file"
 if [[ -n "$previous_slot" ]]; then
   destroy_slot "$previous_slot"
 fi
+
+prune_build_cache
 
 cutover_completed="false"
 echo "Production cutover completed on slot ${target_slot}"
