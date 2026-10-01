@@ -169,7 +169,7 @@ function buildKrakendConfig(endpoints) {
 
 async function collectEndpoints() {
   const endpoints = [];
-  const counts = { public: 0, auth: 0, collab: 0, media: 0, cache: 0, rateLimit: 0 };
+  const counts = { public: 0, auth: 0, collab: 0, media: 0, marketing: 0, cache: 0, rateLimit: 0 };
   const ctx = { hosts, servicesRegistry, authHost: AUTH_HOST };
   const loaderOpts = {
     source: ENDPOINTS_SOURCE,
@@ -184,6 +184,8 @@ async function collectEndpoints() {
     for (const d of sData.endpoints) {
       if (d.endpoint === "/api/v1/health") continue;
 
+      if (d.cache_ttl) counts.cache++;
+
       if (d.public === true) {
         d.host = d.host || s.name;
         endpoints.push(buildPublicEndpoint(d, ctx));
@@ -194,7 +196,7 @@ async function collectEndpoints() {
         if (s.name === "auth") counts.auth++;
         if (s.name === "collab") counts.collab++;
         if (s.name === "media") counts.media++;
-        if (d.cache_ttl) counts.cache++;
+        if (s.name === "marketing") counts.marketing++;
       }
     }
   }
@@ -225,9 +227,11 @@ async function main() {
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
 
-  const total = counts.public + counts.auth + counts.collab + counts.media;
+  const total = counts.public + counts.auth + counts.collab + counts.media + counts.marketing;
   console.log(`✓ krakend.json generado: ${outputPath}`);
-  console.log(`  Endpoints: ${total} (public:${counts.public} auth:${counts.auth} collab:${counts.collab} media:${counts.media})`);
+  console.log(
+    `  Endpoints: ${total} (public:${counts.public} auth:${counts.auth} collab:${counts.collab} media:${counts.media} marketing:${counts.marketing})`
+  );
   console.log(`  Edge caching: ${counts.cache} endpoints`);
   console.log(`  Circuit breaker: ${total} backends (todos)`);
   console.log(`  Rate limiting: ${counts.rateLimit} endpoints`);

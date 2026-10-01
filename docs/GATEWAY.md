@@ -56,10 +56,10 @@ pnpm gateway:build
 
 ### B. Circuit Breaker (Disyuntor de Red)
 - Configurado en todos los backends con los umbrales de `registry/services.json`:
-  - `max_errors`: 3 errores consecutivos.
-  - `interval`: Ventana de evaluación de 60 segundos.
-  - `timeout`: Tiempo límite de respuesta de 10 segundos.
-- Si un microservicio se degrada o cae, KrakenD abre el circuito de inmediato y responde con `503 Service Unavailable`, protegiendo la red y liberando conexiones de forma instantánea.
+  - `max_errors`: 30 errores consecutivos (calibrado para evitar disparos falsos positivos por ráfagas 4xx).
+  - `interval`: Ventana de evaluación de 30 segundos.
+  - `timeout`: Tiempo límite de respuesta de 10 segundos antes de probar medio-abierto.
+- Si un microservicio se degrada o cae de forma sostenida, KrakenD abre el circuito y responde con `503 Service Unavailable`, protegiendo la red y liberando conexiones de forma instantánea.
 
 ### C. Rate Limiting por Endpoint
 - Aplica límites de peticiones por segundo en endpoints sensibles (ej. `POST /api/v1/auth/login`, `POST /api/v1/auth/register`) para prevenir ataques de fuerza bruta o denegación de servicio (DoS).
@@ -67,3 +67,10 @@ pnpm gateway:build
 ### D. CORS (Cross-Origin Resource Sharing)
 - Permite orígenes legítimos (`http://localhost:5173`, dominios de producción).
 - Expone cabeceras necesarias para la aplicación (`X-Trace-Id`, `Content-Disposition`).
+
+### E. HTTP Caching en el Gateway (`qos/http-cache`)
+- Soporte declarativo en `gateway.manifest.json` mediante la propiedad `"cache_ttl"` (ej. `"300s"`).
+- KrakenD almacena en memoria la respuesta de backends de solo lectura (como JWKS y especificaciones OpenAPI), inyectando encabezados `Cache-Control: max-age=<segundos>, public` y eliminando carga de red a los microservicios.
+
+### F. Compresión Gzip en Nginx Edge Proxy
+- Habilitada en el proxy de borde con compresión nivel 6 para tipos MIME textuales y estructurados (JSON, CSS, JS, SVG, XML), reduciendo la transferencia de datos y acelerando la carga para clientes remotos.

@@ -26,9 +26,9 @@ export const AUTH_HEADERS_WITH_BODY = ["Content-Type", ...AUTH_HEADERS_BASE];
 export const BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
 
 const CB_DEFAULTS = {
-  interval: 60,
+  interval: 30,
   timeout: 10,
-  max_errors: 3,
+  max_errors: 30,
   log_status_change: true,
 };
 
@@ -126,8 +126,12 @@ export function buildPublicEndpoint(def, ctx) {
   }
 
   const host = resolveServiceHost(def.host, ctx.hosts);
+  const backendDef = { serviceName: def.host };
+  if (def.cache_ttl) backendDef.cache_ttl = def.cache_ttl;
+  if (def.cb_name) backendDef.cb_name = def.cb_name;
+
   const backend = buildBackend(host, def.backend_url || def.endpoint, {
-    def: { serviceName: def.host },
+    def: backendDef,
     servicesRegistry: ctx.servicesRegistry,
   });
 
