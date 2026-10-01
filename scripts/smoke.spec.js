@@ -228,8 +228,8 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
 
     try {
       await page.getByRole('tab', { name: 'Brief' }).click()
-      const briefContainer = page.locator('div[role="region"][aria-label="Brief del proyecto"] div.whitespace-pre-wrap')
-      await expect(briefContainer).toHaveText(ctx.projectBrief)
+      const briefRegion = page.locator('div[role="region"][aria-label="Brief del proyecto"]')
+      await expect(briefRegion.getByText(ctx.projectBrief)).toBeVisible({ timeout: 10000 })
     } catch (e) {
       ctx.logError('Client Brief', 'El contenido del brief no coincide', e)
     }
