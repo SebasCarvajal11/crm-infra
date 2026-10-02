@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -45,12 +45,12 @@ jobs:
 
     steps:
       - name: Checkout infra
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           path: crm-infra
 
       - name: Checkout auth gateway config
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: SebasCarvajal11/crm-auth
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
@@ -62,7 +62,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Checkout collab gateway config
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: SebasCarvajal11/crm-collab
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
@@ -74,7 +74,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Checkout media gateway config
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: SebasCarvajal11/crm-media
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
@@ -87,7 +87,7 @@ jobs:
 
 
       - name: Checkout marketing gateway config
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: arisocode/CIMA---Marketing-Analytics-Backend
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
@@ -98,7 +98,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Checkout contracts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: SebasCarvajal11/cima-contracts
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
@@ -109,12 +109,12 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v4
         with:
           version: 11.1.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
@@ -133,7 +133,7 @@ jobs:
           pnpm test:deploy
 
       - name: Checkout frontend env template
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: SebasCarvajal11/crm-frontend
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
@@ -259,17 +259,17 @@ jobs:
 
     steps:
       - name: Checkout infra
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           path: crm-infra
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v4
         with:
           version: 11.1.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
@@ -284,12 +284,12 @@ jobs:
       - name: Validate bootstrap shell script syntax
         run: bash -n scripts/00-init-service-schemas.sh
 
-      - name: Run bootstrap (first pass — idempotent create)
+      - name: Run bootstrap (first pass â€” idempotent create)
         run: |
           chmod +x scripts/00-init-service-schemas.sh
           scripts/00-init-service-schemas.sh
 
-      - name: Run bootstrap (second pass — idempotent update, must be a no-op)
+      - name: Run bootstrap (second pass â€” idempotent update, must be a no-op)
         run: scripts/00-init-service-schemas.sh
 
       - name: Verify roles and schemas exist
@@ -297,9 +297,9 @@ jobs:
           psql -U root -d crm_database -c "\dn" | grep -E "schema_auth|schema_collab|schema_media|schema_marketing"
           psql -U root -d crm_database -c "\du" | grep -E "auth_user|collab_user|media_user|marketing_user"
 
-  # ═══════════════════════════════════════════════════════════════════
-  # SMOKE E2E — Full-stack Playwright tests against Docker Compose
-  # ═══════════════════════════════════════════════════════════════════
+  # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  # SMOKE E2E â€” Full-stack Playwright tests against Docker Compose
+  # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   smoke:
     name: Smoke E2E
     runs-on: ubuntu-latest
@@ -323,49 +323,49 @@ jobs:
       OCI_CONFIG_CONTAINER_DIR: /opt/cima/secrets/oci
 
     steps:
-      # ── Checkouts ───────────────────────────────────────────────
+      # â”€â”€ Checkouts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       - name: Checkout infra
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           path: crm-infra
 
       - name: Checkout crm-auth
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: SebasCarvajal11/crm-auth
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-auth
 
       - name: Checkout crm-collab
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: SebasCarvajal11/crm-collab
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-collab
 
       - name: Checkout crm-media
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: SebasCarvajal11/crm-media
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-media
 
       - name: Checkout crm-marketing
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: arisocode/CIMA---Marketing-Analytics-Backend
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-marketing
 
       - name: Checkout crm-frontend
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: SebasCarvajal11/crm-frontend
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
           path: crm-frontend
 
       - name: Checkout cima-contracts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: SebasCarvajal11/cima-contracts
           token: ${{ secrets.CIMA_GITHUB_TOKEN }}
@@ -375,14 +375,14 @@ jobs:
             package.json
           sparse-checkout-cone-mode: false
 
-      # ── Tooling ─────────────────────────────────────────────────
+      # â”€â”€ Tooling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v4
         with:
           version: 11.1.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
@@ -396,7 +396,7 @@ jobs:
         working-directory: crm-infra
         run: pnpm dlx playwright install chromium --with-deps
 
-      # ── Prepare service .env files ──────────────────────────────
+      # â”€â”€ Prepare service .env files â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       - name: Generate JWT keys and service .env files
         working-directory: ${{ github.workspace }}
         shell: bash
@@ -553,7 +553,7 @@ jobs:
           }
           EOF
 
-      # ── Build & Start Dependencies ──────────────────────────────
+      # â”€â”€ Build & Start Dependencies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       - name: Build Docker images and start dependencies
         working-directory: crm-infra
         shell: bash
@@ -601,7 +601,7 @@ jobs:
             exit 1
           fi
 
-      # ── Database Setup ──────────────────────────────────────────
+      # â”€â”€ Database Setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       - name: Install service dependencies
         working-directory: ${{ github.workspace }}
         shell: bash
@@ -695,16 +695,16 @@ jobs:
             exit 1
           fi
 
-      # ── Playwright Smoke Tests ──────────────────────────────────
+      # â”€â”€ Playwright Smoke Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       - name: Run Playwright smoke tests
         working-directory: crm-infra
         shell: bash
         run: pnpm dlx @playwright/test test -c scripts/playwright.smoke.config.js
 
-      # ── Artifacts ───────────────────────────────────────────────
+      # â”€â”€ Artifacts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       - name: Upload test artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: smoke-test-results
           path: |
@@ -712,7 +712,7 @@ jobs:
             crm-infra/VerificationReport.md
           retention-days: 14
 
-      # ── Cleanup ─────────────────────────────────────────────────
+      # â”€â”€ Cleanup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       - name: Tear down Docker stack
         if: always()
         working-directory: crm-infra

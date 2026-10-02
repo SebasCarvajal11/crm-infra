@@ -81,7 +81,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           # Gitleaks analiza el rango completo del PR, que puede empezar antes
           # del padre de HEAD tras un force-push. Se requiere todo el historial.
@@ -95,13 +95,13 @@ jobs:
       # ── TypeScript Setup ──────────────────────────────────────
       - name: Setup pnpm
         if: inputs.language == 'typescript'
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v4
         with:
           version: 11.1.1
 
       - name: Setup Node.js
         if: inputs.language == 'typescript'
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
@@ -109,7 +109,7 @@ jobs:
       # ── Java Setup ────────────────────────────────────────────
       - name: Setup Java
         if: inputs.language == 'java'
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -135,7 +135,7 @@ jobs:
         continue-on-error: true
 
       - name: Run Trivy vulnerability scanner (filesystem)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -357,7 +357,7 @@ jobs:
         run: docker build -t crm-${{ inputs.component }}:ci .
 
       - name: Run Trivy vulnerability scanner (Docker image)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: 'crm-${{ inputs.component }}:ci'
           format: 'table'
@@ -375,7 +375,7 @@ jobs:
             --output "spdx-json=/workspace/sbom-${{ inputs.component }}.spdx.json"
 
       - name: Upload SBOM as artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: sbom-${{ inputs.component }}
           path: sbom-${{ inputs.component }}.spdx.json

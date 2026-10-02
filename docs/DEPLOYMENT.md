@@ -79,11 +79,26 @@ Ante cualquier anomalía detectada en producción tras un despliegue:
 
 ---
 
-## 4. Pipeline de CI/CD en GitHub Actions
+## 4. Pipeline Canónico de CI/CD y Guardrails Shift-Left
 
-Cada repositorio (`crm-auth`, `crm-collab`, `crm-media`, etc.) cuenta con su flujo de trabajo en `.github/workflows/deploy.yml`:
+El ciclo de integración y despliegue continuo se rige bajo una **única fuente de la verdad** orquestada desde `crm-infra`:
 
-1. **Validaciones Previas (CI)**: `pnpm test:unit`, `pnpm openapi:check`, `pnpm typecheck`, `pnpm lint`.
-2. **Conexión SSH Segura**: Al aprobar la fase CI en la rama `main`, el runner de GitHub se conecta a la máquina virtual de producción (`155.248.207.47`).
-3. **Invocación del Despliegue**: Ejecuta `deploy-component.sh <component>`.
-4. **Notificación**: Publica el resultado y la versión desplegada en los logs de la ejecución.
+### Flujo Automatizado Git Push -> CI -> CD
+1. **Guardrails Locales Preventivos (Shift-Left)**:
+   - Todo repositorio cuenta con un hook `pre-push` instalado vía `pnpm guardrails:install` en `crm-infra`.
+   - Antes de enviar cualquier commit a GitHub, el hook valida compilación de TypeScript (`pnpm build`) y suite unitaria (`pnpm test:unit` o `pnpm test`).
+   - Si se detecta un error de tipos, sintaxis o regresión, el push se detiene inmediatamente en local, impidiendo la subida de código roto y eliminando falsos fallos en GitHub Actions.
+   - Para verificar toda la plataforma localmente en un solo comando:
+     ```bash
+     pnpm --dir crm-infra verify:all
+     ```
+
+2. **Integración Continua Reutilizable (`reusable-ci.yml@main`)**:
+   - Cada microservicio invoca centralizadamente el workflow canónico `reusable-ci.yml` apuntando a `@main`.
+   - Utiliza versiones estandarizadas y oficiales de acciones de GitHub (`actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4`, `aquasecurity/trivy-action@0.28.0`).
+   - Ejecuta escaneo de secretos (Gitleaks), dependencias congeladas (`--frozen-lockfile`), análisis de vulnerabilidades, migraciones en esquemas dedicados, compilación, tests y generación de SBOM.
+
+3. **Despliegue Continuo Automatizado (`reusable-deploy.yml@main`)**:
+   - Al completarse con éxito el flujo CI en la rama `main`, el evento `workflow_run` o `workflow_dispatch` dispara `reusable-deploy.yml`.
+   - Establece conexión SSH segura con la instancia en Oracle Cloud (`155.248.207.47`).
+   - Sincroniza la revisión validada e invoca de manera idempotente `deploy-component.sh <component>` aplicando el ciclo Blue/Green sin tiempo de inactividad.

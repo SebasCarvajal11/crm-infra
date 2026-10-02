@@ -5,6 +5,8 @@
   "main": "gateway/build-krakend.mjs",
   "packageManager": "pnpm@11.1.1",
   "scripts": {
+    "guardrails:install": "node scripts/install-guardrails.mjs",
+    "verify:all": "node scripts/verify-all.mjs",
     "test:deploy": "node --test tests/deploy-slot.test.mjs",
     "gateway:build": "node gateway/build-krakend.mjs",
     "compose:generate": "node scripts/generate-compose.mjs",
