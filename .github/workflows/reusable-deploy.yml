@@ -76,6 +76,13 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${DEPLOY_SSH_PORT:-22}" -H "$DEPLOY_SSH_HOST" >> ~/.ssh/known_hosts
+          cat << 'EOF' > ~/.ssh/config
+          Host *
+            ServerAliveInterval 15
+            ServerAliveCountMax 120
+            TCPKeepAlive yes
+          EOF
+          chmod 600 ~/.ssh/config
 
       - name: Validate immutable deployment version
         shell: bash
@@ -99,7 +106,13 @@ jobs:
           DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
           INFRA_REPOSITORY_OWNER: ${{ inputs.infra_owner }}
         run: |
-          ssh -i ~/.ssh/id_ed25519 -p "${DEPLOY_SSH_PORT:-22}" -o StrictHostKeyChecking=yes "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" \
+          ssh -i ~/.ssh/id_ed25519 \
+            -p "${DEPLOY_SSH_PORT:-22}" \
+            -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=120 \
+            -o TCPKeepAlive=yes \
+            "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" \
             "set -euo pipefail; \
             mkdir -p '$DEPLOY_BASE_DIR'; \
             if [ ! -d '$DEPLOY_BASE_DIR/crm-infra/.git' ]; then \

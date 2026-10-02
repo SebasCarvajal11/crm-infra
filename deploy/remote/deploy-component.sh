@@ -162,7 +162,11 @@ legacy_project="crm-infra"
 
 mkdir -p "$lock_dir" "$runtime_dir"
 exec 9>"$lock_dir/production.lock"
-flock 9
+if ! flock -n 9; then
+  echo "[deploy] Component '$component': Another deployment is currently in progress. Waiting for production lock ($lock_dir/production.lock)..."
+  flock 9
+fi
+echo "[deploy] Component '$component': Production lock acquired successfully."
 
 previous_slot=""
 target_slot=""

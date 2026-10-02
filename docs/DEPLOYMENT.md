@@ -95,10 +95,11 @@ El ciclo de integración y despliegue continuo se rige bajo una **única fuente 
 
 2. **Integración Continua Reutilizable (`reusable-ci.yml@main`)**:
    - Cada microservicio invoca centralizadamente el workflow canónico `reusable-ci.yml` apuntando a `@main`.
-   - Utiliza versiones estandarizadas y oficiales de acciones de GitHub (`actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4`, `aquasecurity/trivy-action@0.28.0`).
+   - Utiliza versiones estandarizadas y oficiales de acciones de GitHub (`actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4`, `aquasecurity/trivy-action@master`).
    - Ejecuta escaneo de secretos (Gitleaks), dependencias congeladas (`--frozen-lockfile`), análisis de vulnerabilidades, migraciones en esquemas dedicados, compilación, tests y generación de SBOM.
 
 3. **Despliegue Continuo Automatizado (`reusable-deploy.yml@main`)**:
    - Al completarse con éxito el flujo CI en la rama `main`, el evento `workflow_run` o `workflow_dispatch` dispara `reusable-deploy.yml`.
-   - Establece conexión SSH segura con la instancia en Oracle Cloud (`155.248.207.47`).
-   - Sincroniza la revisión validada e invoca de manera idempotente `deploy-component.sh <component>` aplicando el ciclo Blue/Green sin tiempo de inactividad.
+   - Establece conexión SSH segura con la instancia en Oracle Cloud (`155.248.207.47`) con configuración estricta de KeepAlive (`ServerAliveInterval 15`, `ServerAliveCountMax 120`, `TCPKeepAlive yes`) tanto a nivel de cliente como de `~/.ssh/config`. Esto previene desconexiones silenciosas por inactividad impuestas por tablas NAT o firewalls estatales durante fases de compilación pesada o espera en cola.
+   - **Serialización Segura de Despliegues**: Concurrencia controlada a nivel del servidor mediante `flock 9` sobre `.deploy-lock/production.lock`. Cuando múltiples microservicios disparan despliegues concurrentes, el script encola ordenadamente cada componente sin riesgo de colisión ni corrupción de slots.
+   - Sincroniza la revisión validada e invoca de manera idempotente `deploy-component.sh <component>` aplicando el ciclo Blue/Green sin tiempo de inactividad y verificando que todos los health checks respondan en HTTP 200 OK antes de efectuar el corte de tráfico.
