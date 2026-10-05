@@ -2,6 +2,13 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
+import {
+  DEFAULT_LOGGING,
+  DEFAULT_CONTAINER_LIMITS,
+  resolveServiceMemoryLimit,
+  resolveWorkerMemoryLimit,
+  buildLocalDbPasswordEnv,
+} from "./compose-defaults.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -10,20 +17,9 @@ const services = JSON.parse(readFileSync(servicesPath, "utf-8"));
 const grantsPath = resolve(__dirname, "../registry/db/grants.json");
 const grants = JSON.parse(readFileSync(grantsPath, "utf-8"));
 
-function buildLocalDbPasswordEnv() {
-  return Object.fromEntries(
-    grants.map((grant) => [
-      grant.passwordEnvVar,
-      `\${${grant.passwordEnvVar}:-${grant.service}password}`
-    ])
-  );
-}
-
 // 1. Generate docker-compose.yml (Local Development)
 function generateLocalCompose() {
-  const include = services.map(s => ({
-    path: s.composeFile
-  }));
+  const include = services.map((s) => ({ path: s.composeFile }));
 
   // Construct krakend-config environment and depends_on dynamically
   const krakendEnv = {};
@@ -53,12 +49,13 @@ function generateLocalCompose() {
           dockerfile: "./scripts/Postgres.dockerfile"
         },
         restart: "unless-stopped",
+        logging: DEFAULT_LOGGING,
         command: "postgres -c max_connections=150 -c shared_buffers=256MB -c work_mem=8MB",
         environment: {
           POSTGRES_USER: "root",
           POSTGRES_PASSWORD: "rootpassword",
           POSTGRES_DB: "crm_database",
-          ...buildLocalDbPasswordEnv()
+          ...buildLocalDbPasswordEnv(grants)
         },
         ports: [
           "${POSTGRES_HOST_PORT:-25432}:5432"
@@ -80,6 +77,7 @@ function generateLocalCompose() {
       redis: {
         image: "redis:7-alpine",
         restart: "unless-stopped",
+        logging: DEFAULT_LOGGING,
         command: "redis-server --appendonly yes --appendfsync everysec",
         ports: [
           "${REDIS_HOST_PORT:-26379}:6379"
@@ -98,6 +96,7 @@ function generateLocalCompose() {
       "clamav-scanner": {
         image: "${CLAMAV_IMAGE:-clamav/clamav-debian:1.4}",
         restart: "unless-stopped",
+        logging: DEFAULT_LOGGING,
         ports: [
           "${CLAMAV_HOST_PORT:-23310}:3310"
         ],
@@ -113,6 +112,7 @@ function generateLocalCompose() {
       "krakend-config": {
         image: "${NODE_IMAGE:-node:22-alpine}",
         init: true,
+        logging: DEFAULT_LOGGING,
         working_dir: "/workspace",
         environment: krakendEnv,
         volumes: [
@@ -128,6 +128,7 @@ function generateLocalCompose() {
       "api-gateway": {
         image: "${KRAKEND_IMAGE:-devopsfaith/krakend:2.9}",
         restart: "unless-stopped",
+        logging: DEFAULT_LOGGING,
         ports: [
           "${GATEWAY_HOST_PORT:-28080}:8080"
         ],
@@ -165,18 +166,24 @@ function generateLocalCompose() {
 function generateSlotProdCompose() {
   const servicesObj = {};
 
+  const nodeBuildArgs = {
+    NODE_IMAGE: "${NODE_IMAGE:-node:22-alpine}",
+    PNPM_VERSION: "${PNPM_VERSION:-11.1.1}"
+  };
+
   for (const s of services) {
     if (s.name === "frontend") {
       servicesObj["frontend"] = {
         build: {
           context: "../crm-frontend",
           args: {
-            NODE_IMAGE: "${NODE_IMAGE:-node:22-alpine}",
-            NGINX_IMAGE: "${NGINX_IMAGE:-nginx:1.27-alpine}",
-            PNPM_VERSION: "${PNPM_VERSION:-11.1.1}"
+            ...nodeBuildArgs,
+            NGINX_IMAGE: "${NGINX_IMAGE:-nginx:1.27-alpine}"
           }
         },
         restart: "always",
+        mem_limit: resolveServiceMemoryLimit(s),
+        logging: DEFAULT_LOGGING,
         ports: [
           "127.0.0.1:${FRONTEND_SLOT_HOST_PORT:?FRONTEND_SLOT_HOST_PORT is required}:80"
         ],
@@ -194,13 +201,12 @@ function generateSlotProdCompose() {
     const serviceDef = {
       build: {
         context: `../crm-${s.name}`,
-        args: {
-          NODE_IMAGE: "${NODE_IMAGE:-node:22-alpine}",
-          PNPM_VERSION: "${PNPM_VERSION:-11.1.1}"
-        }
+        args: nodeBuildArgs
       },
       init: true,
       restart: "always",
+      mem_limit: resolveServiceMemoryLimit(s),
+      logging: DEFAULT_LOGGING,
       env_file: [
         `../crm-${s.name}/.env.production`,
         `./deploy/runtime/${s.name}.\${APP_SLOT:?APP_SLOT is required}.env`
@@ -210,19 +216,13 @@ function generateSlotProdCompose() {
         DB_POOL_MAX: "10"
       },
       networks: {
-        default: {
-          aliases: [`crm-${s.name}`]
-        },
-        shared_backplane: {
-          aliases: [`crm-${s.name}`]
-        }
+        default: { aliases: [`crm-${s.name}`] },
+        shared_backplane: { aliases: [`crm-${s.name}`] }
       }
     };
 
     if (s.requiredSecrets && s.requiredSecrets.length > 0) {
-      serviceDef.volumes = [
-        "/opt/cima/secrets:/opt/cima/secrets:ro"
-      ];
+      serviceDef.volumes = ["/opt/cima/secrets:/opt/cima/secrets:ro"];
     }
 
     servicesObj[s.composeService] = serviceDef;
@@ -232,13 +232,12 @@ function generateSlotProdCompose() {
       const workerDef = {
         build: {
           context: `../crm-${s.name}`,
-          args: {
-            NODE_IMAGE: "${NODE_IMAGE:-node:22-alpine}",
-            PNPM_VERSION: "${PNPM_VERSION:-11.1.1}"
-          }
+          args: nodeBuildArgs
         },
         init: true,
         restart: "always",
+        mem_limit: resolveWorkerMemoryLimit(s.name, w),
+        logging: DEFAULT_LOGGING,
         command: w.command,
         env_file: [
           `../crm-${s.name}/.env.production`,
@@ -257,9 +256,7 @@ function generateSlotProdCompose() {
       };
 
       if (s.requiredSecrets && s.requiredSecrets.length > 0) {
-        workerDef.volumes = [
-          "/opt/cima/secrets:/opt/cima/secrets:ro"
-        ];
+        workerDef.volumes = ["/opt/cima/secrets:/opt/cima/secrets:ro"];
       }
 
       servicesObj[w.name] = workerDef;
@@ -270,6 +267,8 @@ function generateSlotProdCompose() {
   servicesObj["api-gateway"] = {
     image: "${KRAKEND_IMAGE:-devopsfaith/krakend:2.9}",
     restart: "always",
+    mem_limit: DEFAULT_CONTAINER_LIMITS.apiGateway,
+    logging: DEFAULT_LOGGING,
     ports: [
       "127.0.0.1:${GATEWAY_SLOT_HOST_PORT:?GATEWAY_SLOT_HOST_PORT is required}:8080"
     ],

@@ -11,6 +11,11 @@ services:
       context: .
       dockerfile: ./scripts/Postgres.dockerfile
     restart: unless-stopped
+    logging: &a1
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     command: postgres -c max_connections=150 -c shared_buffers=256MB -c work_mem=8MB
     environment:
       POSTGRES_USER: root
@@ -39,6 +44,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *a1
     command: redis-server --appendonly yes --appendfsync everysec
     ports:
       - ${REDIS_HOST_PORT:-26379}:6379
@@ -57,6 +63,7 @@ services:
   clamav-scanner:
     image: ${CLAMAV_IMAGE:-clamav/clamav-debian:1.4}
     restart: unless-stopped
+    logging: *a1
     ports:
       - ${CLAMAV_HOST_PORT:-23310}:3310
     healthcheck:
@@ -72,6 +79,7 @@ services:
   krakend-config:
     image: ${NODE_IMAGE:-node:22-alpine}
     init: true
+    logging: *a1
     working_dir: /workspace
     environment:
       KRAKEND_AUTH_HOST: ${KRAKEND_AUTH_HOST:-http://crm-auth:3000}
@@ -106,6 +114,7 @@ services:
   api-gateway:
     image: ${KRAKEND_IMAGE:-devopsfaith/krakend:2.9}
     restart: unless-stopped
+    logging: *a1
     ports:
       - ${GATEWAY_HOST_PORT:-28080}:8080
     volumes:

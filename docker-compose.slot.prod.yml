@@ -3,11 +3,17 @@ services:
   auth:
     build:
       context: ../crm-auth
-      args:
+      args: &a1
         NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
         PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
     init: true
     restart: always
+    mem_limit: 512m
+    logging: &a2
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     env_file:
       - ../crm-auth/.env.production
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
@@ -26,11 +32,11 @@ services:
   auth-email-outbox-worker:
     build:
       context: ../crm-auth
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+      args: *a1
     init: true
     restart: always
+    mem_limit: 256m
+    logging: *a2
     command:
       - pnpm
       - worker:email-outbox
@@ -51,11 +57,11 @@ services:
   auth-identity-outbox-worker:
     build:
       context: ../crm-auth
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+      args: *a1
     init: true
     restart: always
+    mem_limit: 256m
+    logging: *a2
     command:
       - pnpm
       - worker:identity-outbox
@@ -76,11 +82,11 @@ services:
   auth-token-cleanup-worker:
     build:
       context: ../crm-auth
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+      args: *a1
     init: true
     restart: always
+    mem_limit: 256m
+    logging: *a2
     command:
       - pnpm
       - worker:cleanup
@@ -101,11 +107,11 @@ services:
   collab:
     build:
       context: ../crm-collab
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+      args: *a1
     init: true
     restart: always
+    mem_limit: 512m
+    logging: *a2
     env_file:
       - ../crm-collab/.env.production
       - ./deploy/runtime/collab.${APP_SLOT:?APP_SLOT is required}.env
@@ -124,11 +130,11 @@ services:
   collab-outbox-worker:
     build:
       context: ../crm-collab
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+      args: *a1
     init: true
     restart: always
+    mem_limit: 256m
+    logging: *a2
     command:
       - pnpm
       - worker:collab-outbox
@@ -149,11 +155,11 @@ services:
   media:
     build:
       context: ../crm-media
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+      args: *a1
     init: true
     restart: always
+    mem_limit: 512m
+    logging: *a2
     env_file:
       - ../crm-media/.env.production
       - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
@@ -172,11 +178,11 @@ services:
   media-command-worker:
     build:
       context: ../crm-media
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+      args: *a1
     init: true
     restart: always
+    mem_limit: 384m
+    logging: *a2
     command:
       - pnpm
       - worker:media-commands
@@ -197,11 +203,11 @@ services:
   media-quarantine-scan-worker:
     build:
       context: ../crm-media
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+      args: *a1
     init: true
     restart: always
+    mem_limit: 384m
+    logging: *a2
     command:
       - pnpm
       - worker:quarantine-scan
@@ -222,11 +228,11 @@ services:
   media-email-worker:
     build:
       context: ../crm-media
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+      args: *a1
     init: true
     restart: always
+    mem_limit: 384m
+    logging: *a2
     command:
       - pnpm
       - worker:email
@@ -249,9 +255,11 @@ services:
       context: ../crm-frontend
       args:
         NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        NGINX_IMAGE: ${NGINX_IMAGE:-nginx:1.27-alpine}
         PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+        NGINX_IMAGE: ${NGINX_IMAGE:-nginx:1.27-alpine}
     restart: always
+    mem_limit: 256m
+    logging: *a2
     ports:
       - 127.0.0.1:${FRONTEND_SLOT_HOST_PORT:?FRONTEND_SLOT_HOST_PORT is required}:80
     depends_on:
@@ -262,11 +270,11 @@ services:
   marketing:
     build:
       context: ../crm-marketing
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        PNPM_VERSION: ${PNPM_VERSION:-11.1.1}
+      args: *a1
     init: true
     restart: always
+    mem_limit: 768m
+    logging: *a2
     env_file:
       - ../crm-marketing/.env.production
       - ./deploy/runtime/marketing.${APP_SLOT:?APP_SLOT is required}.env
@@ -285,6 +293,8 @@ services:
   api-gateway:
     image: ${KRAKEND_IMAGE:-devopsfaith/krakend:2.9}
     restart: always
+    mem_limit: 256m
+    logging: *a2
     ports:
       - 127.0.0.1:${GATEWAY_SLOT_HOST_PORT:?GATEWAY_SLOT_HOST_PORT is required}:8080
     volumes:
