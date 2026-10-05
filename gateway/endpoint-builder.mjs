@@ -212,3 +212,39 @@ export function buildAuthEndpoint(def, groupHost, ctx) {
 
   return endpoint;
 }
+
+export const HEALTH_CB_CONFIG = {
+  interval: 10,
+  timeout: 5,
+  max_errors: 3,
+  log_status_change: true,
+};
+
+export const DEFAULT_HEALTH_TIMEOUT = "3s";
+
+export function buildHealthCheckEndpoint(servicesRegistry = [], hosts = {}) {
+  const timeout = process.env.GATEWAY_HEALTH_TIMEOUT?.trim() || DEFAULT_HEALTH_TIMEOUT;
+  const healthBackends = servicesRegistry
+    .filter((s) => s.manifestPath)
+    .map((s) => ({
+      host: [hosts[s.name] || `http://${s.name}:3000`],
+      url_pattern: s.healthPath || "/api/v1/health",
+      group: s.name,
+      extra_config: {
+        ...extraBackendOpts(),
+        "qos/circuit-breaker": {
+          ...HEALTH_CB_CONFIG,
+          name: `cb-health-${s.name}`,
+        },
+      },
+    }));
+
+  return {
+    endpoint: "/api/v1/health",
+    method: "GET",
+    output_encoding: "json",
+    timeout,
+    input_headers: [...PUBLIC_HEADERS_BASE],
+    backend: healthBackends,
+  };
+}

@@ -24,6 +24,7 @@ import { compareManifests } from "./manifest-comparator.mjs";
 import {
   buildPublicEndpoint,
   buildAuthEndpoint,
+  buildHealthCheckEndpoint,
   PUBLIC_HEADERS_BASE,
   extraBackendOpts,
   getCircuitBreakerConfig,
@@ -113,31 +114,6 @@ function optionalEnumEnv(name, allowed, fallback) {
   return raw;
 }
 
-function buildHealthCheckEndpoint() {
-  const healthBackends = servicesRegistry
-    .filter((s) => s.manifestPath)
-    .map((s) => ({
-      host: [hosts[s.name]],
-      url_pattern: s.healthPath || "/api/v1/health",
-      group: s.name,
-      extra_config: {
-        ...extraBackendOpts(),
-        "qos/circuit-breaker": {
-          ...getCircuitBreakerConfig(s.name, servicesRegistry),
-          name: `cb-health-${s.name}`,
-        },
-      },
-    }));
-
-  return {
-    endpoint: "/api/v1/health",
-    method: "GET",
-    output_encoding: "json",
-    input_headers: [...PUBLIC_HEADERS_BASE],
-    backend: healthBackends,
-  };
-}
-
 function buildKrakendConfig(endpoints) {
   return {
     $schema: "https://www.krakend.io/schema/v3.json",
@@ -204,7 +180,7 @@ async function collectEndpoints() {
     }
   }
 
-  endpoints.push(buildHealthCheckEndpoint());
+  endpoints.push(buildHealthCheckEndpoint(servicesRegistry, hosts));
   return { endpoints, counts };
 }
 
