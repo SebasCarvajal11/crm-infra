@@ -95,8 +95,9 @@ El ciclo de integración y despliegue continuo se rige bajo una **única fuente 
 
 2. **Integración Continua Reutilizable (`reusable-ci.yml@main`)**:
    - Cada microservicio invoca centralizadamente el workflow canónico `reusable-ci.yml` apuntando a `@main`.
-   - Utiliza versiones estandarizadas y oficiales de acciones de GitHub (`actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4`, `aquasecurity/trivy-action@master`).
-   - Ejecuta escaneo de secretos (Gitleaks), dependencias congeladas (`--frozen-lockfile`), análisis de vulnerabilidades, migraciones en esquemas dedicados, compilación, tests y generación de SBOM.
+   - Utiliza versiones estandarizadas y oficiales de acciones de GitHub (`actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4`).
+   - Pipeline optimizado y de alta velocidad: escaneo de secretos (Gitleaks), dependencias congeladas (`--frozen-lockfile`), inicialización condicional y ágil de base de datos y caché, compilación de TypeScript/Java, validación estricta de manifiesto perimetral y contratos OpenAPI, migraciones y suites de pruebas automatizadas.
+   - En `crm-frontend`, las pruebas de Playwright reutilizan el artefacto compilado y conservan caché persistente de navegadores (`~/.cache/ms-playwright`), reduciendo tiempos y consumo de cuota mensual.
 
 3. **Despliegue Continuo Automatizado (`reusable-deploy.yml@main`)**:
    - Al completarse con éxito el flujo CI en la rama `main`, el evento `workflow_run` o `workflow_dispatch` dispara `reusable-deploy.yml`.

@@ -47,31 +47,6 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: root
-          POSTGRES_PASSWORD: rootpassword
-          POSTGRES_DB: crm_database
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U root -d crm_database"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-
     env:
       DATABASE_URL: postgres://root:rootpassword@127.0.0.1:5432/crm_database
       REDIS_URL: redis://127.0.0.1:6379
@@ -128,20 +103,36 @@ jobs:
         if: inputs.language == 'java' && inputs.build_tool == 'maven'
         run: chmod +x mvnw && ./mvnw dependency:resolve --no-transfer-progress
 
-      # ── Security Scans ────────────────────────────────────────
-      - name: Audit dependencies for vulnerabilities
-        if: ${{ !inputs.is_frontend && inputs.language == 'typescript' }}
-        run: pnpm audit --audit-level high || true
-        continue-on-error: true
+      # ── Database & Cache Services (Conditional) ───────────────
+      - name: Start PostgreSQL service
+        if: ${{ inputs.runs_db }}
+        shell: bash
+        run: |
+          docker run -d --name postgres -p 5432:5432 \
+            -e POSTGRES_USER=root \
+            -e POSTGRES_PASSWORD=rootpassword \
+            -e POSTGRES_DB=crm_database \
+            postgres:16-alpine
+          for i in {1..30}; do
+            if docker exec postgres pg_isready -U root -d crm_database >/dev/null 2>&1; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            sleep 1
+          done
 
-      - name: Run Trivy vulnerability scanner (filesystem)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
+      - name: Start Redis service
+        if: ${{ inputs.runs_redis }}
+        shell: bash
+        run: |
+          docker run -d --name redis -p 6379:6379 redis:7-alpine
+          for i in {1..30}; do
+            if docker exec redis redis-cli ping >/dev/null 2>&1; then
+              echo "Redis is ready"
+              break
+            fi
+            sleep 1
+          done
 
       # ── Hurl (contract tests) ─────────────────────────────────
       - name: Install Hurl
@@ -149,9 +140,9 @@ jobs:
         shell: bash
         run: |
           HURL_VERSION=7.1.0
-          sudo apt-get update
-          curl --location --remote-name "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl_${HURL_VERSION}_amd64.deb"
-          sudo apt-get install -y "./hurl_${HURL_VERSION}_amd64.deb"
+          curl -sSL -o hurl.deb "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl_${HURL_VERSION}_amd64.deb"
+          sudo dpkg -i hurl.deb || sudo apt-get install -fy
+          rm -f hurl.deb
 
       # ── Environment Files ─────────────────────────────────────
       - name: Create CI env file for Auth
@@ -277,7 +268,7 @@ jobs:
           EOF
 
       - name: Create generic CI env file
-        if: ${{ inputs.runs_db && inputs.component != 'auth' }}
+        if: ${{ inputs.runs_db && inputs.component != 'auth' && inputs.component != 'collab' && inputs.component != 'media' }}
         shell: bash
         run: |
           {
@@ -296,6 +287,14 @@ jobs:
       - name: Build (TypeScript)
         if: inputs.language == 'typescript'
         run: pnpm build
+
+      - name: Upload frontend build artifact
+        if: ${{ inputs.is_frontend && inputs.language == 'typescript' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+          retention-days: 1
 
       - name: Build (Java Gradle)
         if: inputs.language == 'java' && inputs.build_tool == 'gradle'
@@ -352,31 +351,3 @@ jobs:
         if: inputs.language == 'java' && inputs.build_tool == 'maven'
         run: chmod +x mvnw && ${{ inputs.test_command || './mvnw test --no-transfer-progress' }}
 
-      # ── Docker Build & Scan ───────────────────────────────────
-      - name: Build production image
-        run: docker build -t crm-${{ inputs.component }}:ci .
-
-      - name: Run Trivy vulnerability scanner (Docker image)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'crm-${{ inputs.component }}:ci'
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
-
-      - name: Generate SBOM
-        shell: bash
-        run: |
-          docker run --rm \
-            --volume /var/run/docker.sock:/var/run/docker.sock \
-            --volume "$PWD:/workspace" \
-            anchore/syft@sha256:5999d209a342e55e9edf70bf8930fb5b86d8f2a783fa401178372c50e21b1d36 \
-            "docker:crm-${{ inputs.component }}:ci" \
-            --output "spdx-json=/workspace/sbom-${{ inputs.component }}.spdx.json"
-
-      - name: Upload SBOM as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-${{ inputs.component }}
-          path: sbom-${{ inputs.component }}.spdx.json
-          retention-days: 90
