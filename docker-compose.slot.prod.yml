@@ -38,8 +38,8 @@ services:
     mem_limit: 256m
     logging: *a2
     command:
-      - pnpm
-      - worker:email-outbox
+      - node
+      - dist/workers/email-outbox.worker.js
     env_file:
       - ../crm-auth/.env.production
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
@@ -63,8 +63,8 @@ services:
     mem_limit: 256m
     logging: *a2
     command:
-      - pnpm
-      - worker:identity-outbox
+      - node
+      - dist/workers/identity-outbox.worker.js
     env_file:
       - ../crm-auth/.env.production
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
@@ -88,8 +88,8 @@ services:
     mem_limit: 256m
     logging: *a2
     command:
-      - pnpm
-      - worker:cleanup
+      - node
+      - dist/workers/token-cleanup.worker.js
     env_file:
       - ../crm-auth/.env.production
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
@@ -136,8 +136,8 @@ services:
     mem_limit: 256m
     logging: *a2
     command:
-      - pnpm
-      - worker:collab-outbox
+      - node
+      - dist/workers/collab-outbox.worker.js
     env_file:
       - ../crm-collab/.env.production
       - ./deploy/runtime/collab.${APP_SLOT:?APP_SLOT is required}.env
@@ -184,8 +184,8 @@ services:
     mem_limit: 384m
     logging: *a2
     command:
-      - pnpm
-      - worker:media-commands
+      - node
+      - dist/workers/media-command.worker.js
     env_file:
       - ../crm-media/.env.production
       - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
@@ -209,8 +209,8 @@ services:
     mem_limit: 384m
     logging: *a2
     command:
-      - pnpm
-      - worker:quarantine-scan
+      - node
+      - dist/workers/quarantine-scan.worker.js
     env_file:
       - ../crm-media/.env.production
       - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
@@ -234,8 +234,8 @@ services:
     mem_limit: 384m
     logging: *a2
     command:
-      - pnpm
-      - worker:email
+      - node
+      - dist/workers/email.worker.js
     env_file:
       - ../crm-media/.env.production
       - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env

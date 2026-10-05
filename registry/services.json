@@ -26,22 +26,22 @@
       {
         "name": "auth-email-outbox-worker",
         "command": [
-          "pnpm",
-          "worker:email-outbox"
+          "node",
+          "dist/workers/email-outbox.worker.js"
         ]
       },
       {
         "name": "auth-identity-outbox-worker",
         "command": [
-          "pnpm",
-          "worker:identity-outbox"
+          "node",
+          "dist/workers/identity-outbox.worker.js"
         ]
       },
       {
         "name": "auth-token-cleanup-worker",
         "command": [
-          "pnpm",
-          "worker:cleanup"
+          "node",
+          "dist/workers/token-cleanup.worker.js"
         ]
       }
     ],
@@ -76,8 +76,8 @@
       {
         "name": "collab-outbox-worker",
         "command": [
-          "pnpm",
-          "worker:collab-outbox"
+          "node",
+          "dist/workers/collab-outbox.worker.js"
         ]
       }
     ],
@@ -110,21 +110,21 @@
       {
         "name": "media-command-worker",
         "command": [
-          "pnpm",
-          "worker:media-commands"
+          "node",
+          "dist/workers/media-command.worker.js"
         ]
       },
       {
         "name": "media-quarantine-scan-worker",
         "command": [
-          "pnpm",
-          "worker:quarantine-scan"
+          "node",
+          "dist/workers/quarantine-scan.worker.js"
         ]
       },
       {
         "command": [
-          "pnpm",
-          "worker:email"
+          "node",
+          "dist/workers/email.worker.js"
         ],
         "name": "media-email-worker"
       }
