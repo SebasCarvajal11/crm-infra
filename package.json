@@ -7,7 +7,9 @@
   "scripts": {
     "guardrails:install": "node scripts/install-guardrails.mjs",
     "verify:all": "node scripts/verify-all.mjs",
+    "test": "node --test tests/*.test.mjs",
     "test:deploy": "node --test tests/deploy-slot.test.mjs",
+    "test:gateway": "node --test tests/gateway-rate-limit.test.mjs",
     "gateway:build": "node gateway/build-krakend.mjs",
     "compose:generate": "node scripts/generate-compose.mjs",
     "registry:validate": "node scripts/validate-registry.mjs",

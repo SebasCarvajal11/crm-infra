@@ -188,11 +188,14 @@ async function collectEndpoints() {
 
       if (d.public === true) {
         d.host = d.host || s.name;
-        endpoints.push(buildPublicEndpoint(d, ctx));
+        const ep = buildPublicEndpoint(d, ctx);
+        endpoints.push(ep);
         counts.public++;
-        if (d.rate_limit) counts.rateLimit++;
+        if (ep.extra_config?.["qos/ratelimit/router"]) counts.rateLimit++;
       } else {
-        endpoints.push(buildAuthEndpoint(d, sData.host, ctx));
+        const ep = buildAuthEndpoint(d, sData.host, ctx);
+        endpoints.push(ep);
+        if (ep.extra_config?.["qos/ratelimit/router"]) counts.rateLimit++;
         if (s.name === "auth") counts.auth++;
         if (s.name === "collab") counts.collab++;
         if (s.name === "media") counts.media++;

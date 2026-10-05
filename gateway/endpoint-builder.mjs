@@ -116,6 +116,20 @@ export function resolveServiceHost(service, hosts) {
   return host;
 }
 
+export const DEFAULT_AUTH_RATE_LIMIT = {
+  client_max_rate: 600,
+  client_capacity: 600,
+  every: "1m",
+  strategy: "ip",
+};
+
+export function resolveEndpointRateLimit(rateLimitDef, isAuth = false) {
+  if (rateLimitDef === false) return null;
+  if (rateLimitDef && typeof rateLimitDef === "object") return rateLimitDef;
+  if (isAuth) return DEFAULT_AUTH_RATE_LIMIT;
+  return null;
+}
+
 export function buildPublicEndpoint(def, ctx) {
   const headers = [...PUBLIC_HEADERS_BASE];
   if (BODY_METHODS.has(def.method)) headers.unshift("Content-Type");
@@ -143,8 +157,12 @@ export function buildPublicEndpoint(def, ctx) {
     backend: [backend],
   };
 
-  if (def.rate_limit) {
-    endpoint.extra_config = { "qos/ratelimit/router": def.rate_limit };
+  const rateLimit = resolveEndpointRateLimit(def.rate_limit, false);
+  if (rateLimit) {
+    endpoint.extra_config = {
+      ...(endpoint.extra_config || {}),
+      "qos/ratelimit/router": rateLimit,
+    };
   }
 
   return endpoint;
@@ -171,11 +189,19 @@ export function buildAuthEndpoint(def, groupHost, ctx) {
     servicesRegistry: ctx.servicesRegistry,
   });
 
+  const rateLimit = resolveEndpointRateLimit(def.rate_limit, true);
+  const extraConfig = {
+    ...jwtValidator(ctx.authHost),
+  };
+  if (rateLimit) {
+    extraConfig["qos/ratelimit/router"] = rateLimit;
+  }
+
   const endpoint = {
     endpoint: def.endpoint,
     method: def.method,
     output_encoding: "no-op",
-    extra_config: jwtValidator(ctx.authHost),
+    extra_config: extraConfig,
     input_headers: headers,
     backend: [backend],
   };
