@@ -28,7 +28,10 @@ test("docker-compose.slot.prod.yml tiene mem_limit y rotacion de logs en todos l
 
   const compose = YAML.parse(readFileSync(composePath, "utf-8"));
   const services = Object.entries(compose.services);
-  assert.ok(services.length >= 10, "Debe haber al menos 10 servicios en el slot de prod");
+  assert.ok(services.length >= 9, "Debe haber al menos 9 servicios en el slot de prod");
+  assert.ok(compose.services["auth-worker"], "Debe existir auth-worker");
+  assert.ok(compose.services["collab-worker"], "Debe existir collab-worker");
+  assert.ok(compose.services["media-worker"], "Debe existir media-worker");
 
   for (const [name, s] of services) {
     assert.ok(s.mem_limit, `Servicio ${name} debe tener mem_limit configurado`);

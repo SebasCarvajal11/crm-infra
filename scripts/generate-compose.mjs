@@ -245,7 +245,7 @@ function generateSlotProdCompose() {
         ],
         environment: {
           CONTAINER_MODE: "worker",
-          DB_POOL_MAX: "2"
+          DB_POOL_MAX: "4"
         },
         networks: ["default", "shared_backplane"],
         depends_on: {

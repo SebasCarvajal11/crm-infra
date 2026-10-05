@@ -363,6 +363,8 @@ container_redis_url() {
 dump_logs() {
   shared_compose_cmd ps || true
   if [[ -n "$target_slot" ]]; then
+    local worker_services
+    worker_services="$(jq -r '.[].workers[]?.name' "$stack_dir/registry/services.json" 2>/dev/null | tr '\n' ' ')"
     APP_SLOT="$target_slot" \
     GATEWAY_SLOT_HOST_PORT="$(slot_gateway_port "$target_slot")" \
     FRONTEND_SLOT_HOST_PORT="$(slot_frontend_port "$target_slot")" \
@@ -370,7 +372,7 @@ dump_logs() {
     APP_SLOT="$target_slot" \
     GATEWAY_SLOT_HOST_PORT="$(slot_gateway_port "$target_slot")" \
     FRONTEND_SLOT_HOST_PORT="$(slot_frontend_port "$target_slot")" \
-    docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" logs --tail=150 auth media collab marketing api-gateway frontend media-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker || true
+    docker compose -p "$(slot_project "$target_slot")" -f "$slot_compose" logs --tail=150 auth media collab marketing api-gateway frontend $worker_services || true
   fi
   if [[ -n "$previous_slot" && "$previous_slot" != "$target_slot" ]]; then
     APP_SLOT="$previous_slot" \
@@ -674,10 +676,12 @@ stop_slot_workers() {
   gateway_port="$(slot_gateway_port "$slot")"
   frontend_port="$(slot_frontend_port "$slot")"
   if slot_has_project "$slot"; then
+    local worker_services
+    worker_services="$(jq -r '.[].workers[]?.name' "$stack_dir/registry/services.json" 2>/dev/null | tr '\n' ' ')"
     APP_SLOT="$slot" \
     GATEWAY_SLOT_HOST_PORT="$gateway_port" \
     FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-    docker compose -p "$project" -f "$slot_compose" stop media-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker || true
+    docker compose -p "$project" -f "$slot_compose" stop $worker_services media-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker 2>/dev/null || true
   fi
 }
 
@@ -688,12 +692,19 @@ start_slot_workers() {
   gateway_port="$(slot_gateway_port "$slot")"
   frontend_port="$(slot_frontend_port "$slot")"
 
+  local worker_services
+  worker_services="$(jq -r '.[].workers[]?.name' "$stack_dir/registry/services.json" 2>/dev/null | tr '\n' ' ')"
+  if [[ -z "${worker_services// }" ]]; then
+    return 0
+  fi
+
   APP_SLOT="$slot" \
   GATEWAY_SLOT_HOST_PORT="$gateway_port" \
   FRONTEND_SLOT_HOST_PORT="$frontend_port" \
-  docker compose -p "$project" -f "$slot_compose" up -d --build media-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker
+  docker compose -p "$project" -f "$slot_compose" up -d --build $worker_services
 
-  wait_for_compose_services_running "$slot" media-email-worker auth-email-outbox-worker auth-identity-outbox-worker auth-token-cleanup-worker collab-outbox-worker media-command-worker media-quarantine-scan-worker
+  read -r -a workers_array <<< "$worker_services"
+  wait_for_compose_services_running "$slot" "${workers_array[@]}"
 }
 
 destroy_slot() {

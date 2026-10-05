@@ -29,7 +29,7 @@ services:
           - crm-auth
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
-  auth-email-outbox-worker:
+  auth-worker:
     build:
       context: ../crm-auth
       args: *a1
@@ -39,63 +39,13 @@ services:
     logging: *a2
     command:
       - node
-      - dist/workers/email-outbox.worker.js
+      - dist/workers/auth.worker.js
     env_file:
       - ../crm-auth/.env.production
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: worker
-      DB_POOL_MAX: "2"
-    networks:
-      - default
-      - shared_backplane
-    depends_on:
-      auth:
-        condition: service_healthy
-    volumes:
-      - /opt/cima/secrets:/opt/cima/secrets:ro
-  auth-identity-outbox-worker:
-    build:
-      context: ../crm-auth
-      args: *a1
-    init: true
-    restart: always
-    mem_limit: 256m
-    logging: *a2
-    command:
-      - node
-      - dist/workers/identity-outbox.worker.js
-    env_file:
-      - ../crm-auth/.env.production
-      - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
-    environment:
-      CONTAINER_MODE: worker
-      DB_POOL_MAX: "2"
-    networks:
-      - default
-      - shared_backplane
-    depends_on:
-      auth:
-        condition: service_healthy
-    volumes:
-      - /opt/cima/secrets:/opt/cima/secrets:ro
-  auth-token-cleanup-worker:
-    build:
-      context: ../crm-auth
-      args: *a1
-    init: true
-    restart: always
-    mem_limit: 256m
-    logging: *a2
-    command:
-      - node
-      - dist/workers/token-cleanup.worker.js
-    env_file:
-      - ../crm-auth/.env.production
-      - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
-    environment:
-      CONTAINER_MODE: worker
-      DB_POOL_MAX: "2"
+      DB_POOL_MAX: "4"
     networks:
       - default
       - shared_backplane
@@ -127,7 +77,7 @@ services:
           - crm-collab
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
-  collab-outbox-worker:
+  collab-worker:
     build:
       context: ../crm-collab
       args: *a1
@@ -137,13 +87,13 @@ services:
     logging: *a2
     command:
       - node
-      - dist/workers/collab-outbox.worker.js
+      - dist/workers/collab.worker.js
     env_file:
       - ../crm-collab/.env.production
       - ./deploy/runtime/collab.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: worker
-      DB_POOL_MAX: "2"
+      DB_POOL_MAX: "4"
     networks:
       - default
       - shared_backplane
@@ -175,7 +125,7 @@ services:
           - crm-media
     volumes:
       - /opt/cima/secrets:/opt/cima/secrets:ro
-  media-command-worker:
+  media-worker:
     build:
       context: ../crm-media
       args: *a1
@@ -185,63 +135,13 @@ services:
     logging: *a2
     command:
       - node
-      - dist/workers/media-command.worker.js
+      - dist/workers/media.worker.js
     env_file:
       - ../crm-media/.env.production
       - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: worker
-      DB_POOL_MAX: "2"
-    networks:
-      - default
-      - shared_backplane
-    depends_on:
-      media:
-        condition: service_healthy
-    volumes:
-      - /opt/cima/secrets:/opt/cima/secrets:ro
-  media-quarantine-scan-worker:
-    build:
-      context: ../crm-media
-      args: *a1
-    init: true
-    restart: always
-    mem_limit: 384m
-    logging: *a2
-    command:
-      - node
-      - dist/workers/quarantine-scan.worker.js
-    env_file:
-      - ../crm-media/.env.production
-      - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
-    environment:
-      CONTAINER_MODE: worker
-      DB_POOL_MAX: "2"
-    networks:
-      - default
-      - shared_backplane
-    depends_on:
-      media:
-        condition: service_healthy
-    volumes:
-      - /opt/cima/secrets:/opt/cima/secrets:ro
-  media-email-worker:
-    build:
-      context: ../crm-media
-      args: *a1
-    init: true
-    restart: always
-    mem_limit: 384m
-    logging: *a2
-    command:
-      - node
-      - dist/workers/email.worker.js
-    env_file:
-      - ../crm-media/.env.production
-      - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
-    environment:
-      CONTAINER_MODE: worker
-      DB_POOL_MAX: "2"
+      DB_POOL_MAX: "4"
     networks:
       - default
       - shared_backplane

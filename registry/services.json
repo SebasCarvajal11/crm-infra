@@ -24,24 +24,10 @@
     "secretRotationDays": 90,
     "workers": [
       {
-        "name": "auth-email-outbox-worker",
+        "name": "auth-worker",
         "command": [
           "node",
-          "dist/workers/email-outbox.worker.js"
-        ]
-      },
-      {
-        "name": "auth-identity-outbox-worker",
-        "command": [
-          "node",
-          "dist/workers/identity-outbox.worker.js"
-        ]
-      },
-      {
-        "name": "auth-token-cleanup-worker",
-        "command": [
-          "node",
-          "dist/workers/token-cleanup.worker.js"
+          "dist/workers/auth.worker.js"
         ]
       }
     ],
@@ -74,10 +60,10 @@
     "secretRotationDays": 90,
     "workers": [
       {
-        "name": "collab-outbox-worker",
+        "name": "collab-worker",
         "command": [
           "node",
-          "dist/workers/collab-outbox.worker.js"
+          "dist/workers/collab.worker.js"
         ]
       }
     ],
@@ -108,25 +94,11 @@
     ],
     "workers": [
       {
-        "name": "media-command-worker",
+        "name": "media-worker",
         "command": [
           "node",
-          "dist/workers/media-command.worker.js"
+          "dist/workers/media.worker.js"
         ]
-      },
-      {
-        "name": "media-quarantine-scan-worker",
-        "command": [
-          "node",
-          "dist/workers/quarantine-scan.worker.js"
-        ]
-      },
-      {
-        "command": [
-          "node",
-          "dist/workers/email.worker.js"
-        ],
-        "name": "media-email-worker"
       }
     ],
     "circuitBreaker": {
