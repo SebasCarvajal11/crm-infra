@@ -393,6 +393,7 @@ append_csp_sources() {
 
 render_edge_config() {
   local frontend_port="$1"
+  local gateway_port="${2:-$frontend_port}"
   local connect_src img_src style_src font_src frame_src media_src
   connect_src="$(append_csp_sources "connect-src 'self' https://objectstorage.us-sanjose-1.oraclecloud.com" "${CSP_CONNECT_SRC_EXTRA:-}")"
   img_src="$(append_csp_sources "img-src 'self' data: blob: https://objectstorage.us-sanjose-1.oraclecloud.com" "${CSP_IMG_SRC_EXTRA:-}")"
@@ -430,6 +431,18 @@ server {
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
     add_header Content-Security-Policy "default-src 'self'; script-src 'self' blob:; ${style_src}; ${img_src}; ${font_src}; ${connect_src}; ${media_src}; ${frame_src}; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
+    location ^~ /api/ {
+        proxy_pass http://127.0.0.1:${gateway_port};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$remote_addr;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_connect_timeout 15s;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:${frontend_port};
         proxy_http_version 1.1;
@@ -447,10 +460,11 @@ EOF
 
 activate_edge_slot() {
   local slot="$1"
-  local slot_front_port
+  local slot_front_port slot_gw_port
   slot_front_port="$(slot_frontend_port "$slot")"
+  slot_gw_port="$(slot_gateway_port "$slot")"
   ensure_shared_docker_primitives
-  render_edge_config "$slot_front_port"
+  render_edge_config "$slot_front_port" "$slot_gw_port"
   shared_compose_cmd up -d edge-proxy >/dev/null
   shared_compose_cmd exec -T edge-proxy nginx -s reload >/dev/null
 }
