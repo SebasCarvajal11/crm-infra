@@ -37,13 +37,13 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
-    mem_limit: 256m
+    mem_limit: 1024m
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-    command: redis-server --appendonly yes --appendfsync everysec
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory 768mb --maxmemory-policy noeviction
     ports:
       - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
     volumes:
