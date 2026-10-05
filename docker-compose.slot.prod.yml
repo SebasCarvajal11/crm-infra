@@ -13,6 +13,7 @@ services:
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: server
+      DB_POOL_MAX: "10"
     networks:
       default:
         aliases:
@@ -38,6 +39,7 @@ services:
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: worker
+      DB_POOL_MAX: "2"
     networks:
       - default
       - shared_backplane
@@ -62,6 +64,7 @@ services:
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: worker
+      DB_POOL_MAX: "2"
     networks:
       - default
       - shared_backplane
@@ -86,6 +89,7 @@ services:
       - ./deploy/runtime/auth.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: worker
+      DB_POOL_MAX: "2"
     networks:
       - default
       - shared_backplane
@@ -107,6 +111,7 @@ services:
       - ./deploy/runtime/collab.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: server
+      DB_POOL_MAX: "10"
     networks:
       default:
         aliases:
@@ -132,6 +137,7 @@ services:
       - ./deploy/runtime/collab.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: worker
+      DB_POOL_MAX: "2"
     networks:
       - default
       - shared_backplane
@@ -153,6 +159,7 @@ services:
       - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: server
+      DB_POOL_MAX: "10"
     networks:
       default:
         aliases:
@@ -178,6 +185,7 @@ services:
       - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: worker
+      DB_POOL_MAX: "2"
     networks:
       - default
       - shared_backplane
@@ -202,6 +210,7 @@ services:
       - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: worker
+      DB_POOL_MAX: "2"
     networks:
       - default
       - shared_backplane
@@ -226,6 +235,7 @@ services:
       - ./deploy/runtime/media.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: worker
+      DB_POOL_MAX: "2"
     networks:
       - default
       - shared_backplane
@@ -262,6 +272,7 @@ services:
       - ./deploy/runtime/marketing.${APP_SLOT:?APP_SLOT is required}.env
     environment:
       CONTAINER_MODE: server
+      DB_POOL_MAX: "10"
     networks:
       default:
         aliases:

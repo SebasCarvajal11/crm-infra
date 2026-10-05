@@ -53,6 +53,7 @@ function generateLocalCompose() {
           dockerfile: "./scripts/Postgres.dockerfile"
         },
         restart: "unless-stopped",
+        command: "postgres -c max_connections=150 -c shared_buffers=256MB -c work_mem=8MB",
         environment: {
           POSTGRES_USER: "root",
           POSTGRES_PASSWORD: "rootpassword",
@@ -205,7 +206,8 @@ function generateSlotProdCompose() {
         `./deploy/runtime/${s.name}.\${APP_SLOT:?APP_SLOT is required}.env`
       ],
       environment: {
-        CONTAINER_MODE: "server"
+        CONTAINER_MODE: "server",
+        DB_POOL_MAX: "10"
       },
       networks: {
         default: {
@@ -243,7 +245,8 @@ function generateSlotProdCompose() {
           `./deploy/runtime/${s.name}.\${APP_SLOT:?APP_SLOT is required}.env`
         ],
         environment: {
-          CONTAINER_MODE: "worker"
+          CONTAINER_MODE: "worker",
+          DB_POOL_MAX: "2"
         },
         networks: ["default", "shared_backplane"],
         depends_on: {

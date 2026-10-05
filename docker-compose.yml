@@ -11,6 +11,7 @@ services:
       context: .
       dockerfile: ./scripts/Postgres.dockerfile
     restart: unless-stopped
+    command: postgres -c max_connections=150 -c shared_buffers=256MB -c work_mem=8MB
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: rootpassword
