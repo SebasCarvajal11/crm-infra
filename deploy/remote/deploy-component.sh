@@ -167,6 +167,7 @@ if ! flock -n 9; then
   flock 9
 fi
 echo "[deploy] Component '$component': Production lock acquired successfully."
+cd "$stack_dir"
 
 previous_slot=""
 target_slot=""
@@ -549,7 +550,7 @@ write_runtime_env_files() {
   
   # Get all services from registry using jq, filtering out frontend
   local services_to_env
-  services_to_env=$(jq -r '.[] | select(.name != "frontend") | .name' registry/services.json)
+  services_to_env=$(jq -r '.[] | select(.name != "frontend") | .name' "$stack_dir/registry/services.json")
 
   for sName in $services_to_env; do
     sDir="$(repo_path "crm-${sName}")"
@@ -569,7 +570,7 @@ write_runtime_env_files() {
     redis_url="$(grep '^REDIS_URL=' "$env_prod" | head -n 1 | cut -d= -f2- || echo "")"
     
     semver="$(jq -r '.version // "1.0.0"' "$sDir/package.json" 2>/dev/null || echo "1.0.0")"
-    db_schema="$(jq -r --arg name "$sName" '.[] | select(.name == $name) | .schema // empty' registry/services.json)"
+    db_schema="$(jq -r --arg name "$sName" '.[] | select(.name == $name) | .schema // empty' "$stack_dir/registry/services.json")"
     
     # Copy the whole env file first to retain all microservice-specific env keys
     cp "$env_prod" "$dest_env"
@@ -743,7 +744,7 @@ rollback_if_needed() {
 trap rollback_if_needed ERR
 
 # Define service directories dynamically and upper-cased names
-all_services="$(jq -r '.[] | "\(.name)|crm-\(.name)"' registry/services.json)"
+all_services="$(jq -r '.[] | "\(.name)|crm-\(.name)"' "$stack_dir/registry/services.json")"
 
 for svc_info in $all_services; do
   sName="$(echo "$svc_info" | cut -d'|' -f1)"
@@ -847,7 +848,7 @@ db_user="${POSTGRES_USER:-root}"
 superuser_url="postgresql://${db_user}:${db_pass}@127.0.0.1:${db_port}/${POSTGRES_DB:-crm_database}"
 
 # Get database services from registry to run migrations/bootstraps dynamically
-db_services="$(jq -r '.[] | select(.schema and .dbMigrateScript) | "\(.name)|crm-\(.name)|\(.schema)|\(.dbInitScript // "")|\(.dbMigrateScript // "")"' registry/services.json)"
+db_services="$(jq -r '.[] | select(.schema and .dbMigrateScript) | "\(.name)|crm-\(.name)|\(.schema)|\(.dbInitScript // "")|\(.dbMigrateScript // "")"' "$stack_dir/registry/services.json")"
 
 for svc_info in $db_services; do
   sName="$(echo "$svc_info" | cut -d'|' -f1)"
