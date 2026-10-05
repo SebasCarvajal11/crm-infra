@@ -629,7 +629,19 @@ jobs:
       - name: Seed test data
         working-directory: ${{ github.workspace }}
         shell: bash
-        run: (cd crm-auth && DATABASE_URL=postgresql://auth_user:authpassword_ci@localhost:5432/crm_database DB_SCHEMA=schema_auth pnpm db:seed)
+        run: |
+          (cd crm-auth && DATABASE_URL=postgresql://root:rootpassword@localhost:5432/crm_database DB_SCHEMA=schema_auth pnpm db:seed)
+          docker compose -f crm-infra/docker-compose.yml --env-file crm-infra/.env.docker exec -T postgres_db psql -U root -d crm_database -c "
+            INSERT INTO schema_collab.user_identity_snapshots (user_sub, email, role, first_name, last_name, created_at, updated_at)
+            SELECT subject, email, role, first_name, last_name, created_at, updated_at
+            FROM schema_auth.users
+            ON CONFLICT (user_sub) DO UPDATE SET
+              email = EXCLUDED.email,
+              role = EXCLUDED.role,
+              first_name = EXCLUDED.first_name,
+              last_name = EXCLUDED.last_name,
+              updated_at = EXCLUDED.updated_at;
+          "
 
       - name: Start application stack
         working-directory: crm-infra
@@ -708,8 +720,8 @@ jobs:
         with:
           name: smoke-test-results
           path: |
-            crm-infra/test-results/
-            crm-infra/VerificationReport.md
+            crm-infra/**/test-results/
+            crm-infra/**/VerificationReport.md
           retention-days: 14
 
       # ── Cleanup ─────────────────────────────────────────────────
