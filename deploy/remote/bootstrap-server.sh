@@ -143,6 +143,12 @@ server {
 EOF
 fi
 
+chmod +x "${base_dir}/crm-infra/scripts/"*.sh 2>/dev/null || true
+
+if [[ -f "${base_dir}/crm-infra/scripts/install-maintenance-cron.sh" ]]; then
+  bash "${base_dir}/crm-infra/scripts/install-maintenance-cron.sh" || true
+fi
+
 echo "Server bootstrap complete under ${base_dir}"
 echo "Next steps:"
 echo "1. Fill each .env.production with real values."

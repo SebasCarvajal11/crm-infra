@@ -599,6 +599,11 @@ start_shared_platform() {
   # bootstrap depends on jq. Build it when the shared platform is started so
   # a fresh host cannot silently start an image without that dependency.
   shared_compose_cmd up -d --build postgres_db redis clamav-scanner edge-proxy
+
+  chmod +x "${stack_dir}/scripts/"*.sh 2>/dev/null || true
+  if [[ -f "${stack_dir}/scripts/install-maintenance-cron.sh" ]]; then
+    bash "${stack_dir}/scripts/install-maintenance-cron.sh" || true
+  fi
 }
 
 reconcile_service_database_access() {
