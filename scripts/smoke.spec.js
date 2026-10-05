@@ -67,11 +67,12 @@ test.describe.serial('CIMA CRM — Smoke E2E', () => {
       await taskDialog.locator('#ct-title').fill(ctx.taskTitle)
       await taskDialog.locator('#ct-desc').fill(`Detalle de la tarea smoke ${ctx.suffix}.`)
 
-      await page.getByPlaceholder('Descripcion de la subtarea...').fill('Subtarea 1: Diseno')
-      await page.getByPlaceholder('Descripcion de la subtarea...').press('Enter')
+      const subtaskInput = page.getByPlaceholder(/descripci[oó]n de la subtarea/i)
+      await subtaskInput.fill('Subtarea 1: Diseno')
+      await subtaskInput.press('Enter')
 
-      await page.getByPlaceholder('Descripcion de la subtarea...').fill('Subtarea 2: Revision')
-      await page.getByPlaceholder('Descripcion de la subtarea...').press('Enter')
+      await subtaskInput.fill('Subtarea 2: Revision')
+      await subtaskInput.press('Enter')
 
       await taskDialog.getByRole('button', { name: 'Crear tarea' }).click()
       await expect(taskDialog).not.toBeVisible({ timeout: 10000 })
