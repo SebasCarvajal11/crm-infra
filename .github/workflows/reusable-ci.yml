@@ -255,7 +255,6 @@ jobs:
             'OCI_CONFIG_PROFILE=DEFAULT',
             'OCI_REGION=us-sanjose-1',
             'OCI_NAMESPACE=placeholder',
-            'OCI_BUCKET_AVATARS_PUBLIC=crm-avatars-public',
             'OCI_BUCKET_DOCS_PRIVATE=crm-docs-private',
             'CLAMAV_HOST=127.0.0.1',
             'CLAMAV_PORT=3310',

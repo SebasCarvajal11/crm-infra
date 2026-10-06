@@ -500,12 +500,10 @@ jobs:
             'CLAMAV_SCAN_TIMEOUT_MS=90000',
             'DOC_PAR_TTL_SECONDS=300',
             'OCI_PAR_PRUNE_MAX=80',
-            'AVATAR_VERSIONS_TO_KEEP=3',
             'OCI_CONFIG_FILE_PATH=/opt/cima/secrets/oci/oci.config',
             'OCI_CONFIG_PROFILE=DEFAULT',
             \`OCI_REGION=\${process.env.OCI_REGION || 'us-sanjose-1'}\`,
             \`OCI_NAMESPACE=\${process.env.OCI_NAMESPACE || 'placeholder'}\`,
-            'OCI_BUCKET_AVATARS_PUBLIC=crm-avatars-public',
             'OCI_BUCKET_DOCS_PRIVATE=crm-docs-private',
             'OCI_HEALTHCHECK_ENABLED=false',
           ].join('\\n') + '\\n');
