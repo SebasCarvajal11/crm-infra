@@ -150,7 +150,7 @@ Content-Type: application/json
 }
 HTTP 403
 
-# --- 11. Client: Verifica avatar (deberia tener uno si se subio antes) ---
+# --- 11. Client: Verifica avatar (deberia tener uno si se asigno antes) ---
 GET {{base_url}}/api/v1/media/avatars/current
 Authorization: Bearer {{client_token}}
 HTTP 200
