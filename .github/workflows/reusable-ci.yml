@@ -112,7 +112,8 @@ jobs:
             -e POSTGRES_USER=root \
             -e POSTGRES_PASSWORD=rootpassword \
             -e POSTGRES_DB=crm_database \
-            postgres:16-alpine
+            public.ecr.aws/docker/library/postgres:16-alpine \
+            -c fsync=off -c synchronous_commit=off -c full_page_writes=off
           for i in {1..30}; do
             if docker exec postgres pg_isready -U root -d crm_database >/dev/null 2>&1; then
               echo "PostgreSQL is ready"
@@ -125,7 +126,7 @@ jobs:
         if: ${{ inputs.runs_redis }}
         shell: bash
         run: |
-          docker run -d --name redis -p 6379:6379 redis:7-alpine
+          docker run -d --name redis -p 6379:6379 public.ecr.aws/docker/library/redis:7-alpine --save ""
           for i in {1..30}; do
             if docker exec redis redis-cli ping >/dev/null 2>&1; then
               echo "Redis is ready"
@@ -135,14 +136,28 @@ jobs:
           done
 
       # ── Hurl (contract tests) ─────────────────────────────────
+      - name: Cache Hurl binary
+        if: ${{ inputs.install_hurl }}
+        uses: actions/cache@v4
+        id: hurl-cache
+        with:
+          path: ~/.local/bin/hurl
+          key: hurl-v7.1.0-${{ runner.os }}
+
       - name: Install Hurl
         if: ${{ inputs.install_hurl }}
         shell: bash
         run: |
-          HURL_VERSION=7.1.0
-          curl -sSL -o hurl.deb "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl_${HURL_VERSION}_amd64.deb"
-          sudo dpkg -i hurl.deb || sudo apt-get install -fy
-          rm -f hurl.deb
+          mkdir -p ~/.local/bin
+          if [ "${{ steps.hurl-cache.outputs.cache-hit }}" != "true" ]; then
+            HURL_VERSION=7.1.0
+            curl -sSL -o /tmp/hurl.tar.gz "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl-${HURL_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+            tar -xzf /tmp/hurl.tar.gz -C /tmp
+            mv "/tmp/hurl-${HURL_VERSION}-x86_64-unknown-linux-gnu/hurl" ~/.local/bin/hurl
+            chmod +x ~/.local/bin/hurl
+            rm -rf /tmp/hurl*
+          fi
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       # ── Environment Files ─────────────────────────────────────
       - name: Create CI env file for Auth
@@ -280,8 +295,14 @@ jobs:
 
       # ── Lint ──────────────────────────────────────────────────
       - name: Lint (TypeScript)
-        if: ${{ inputs.is_frontend && inputs.language == 'typescript' }}
-        run: pnpm lint
+        if: inputs.language == 'typescript'
+        shell: bash
+        run: |
+          if pnpm run | grep -E '^\s*lint$' >/dev/null 2>&1; then
+            pnpm lint
+          elif [ "${{ inputs.is_frontend }}" = "true" ]; then
+            pnpm lint
+          fi
 
       # ── Build ─────────────────────────────────────────────────
       - name: Build (TypeScript)

@@ -392,9 +392,23 @@ jobs:
         working-directory: crm-infra
         run: pnpm install --frozen-lockfile
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-smoke-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-smoke-${{ runner.os }}-chromium
+          restore-keys: |
+            playwright-smoke-${{ runner.os }}-
+
       - name: Install Playwright browsers
         working-directory: crm-infra
-        run: pnpm dlx playwright install chromium --with-deps
+        run: |
+          if [ "${{ steps.playwright-smoke-cache.outputs.cache-hit }}" = "true" ]; then
+            pnpm dlx playwright install chromium
+          else
+            pnpm dlx playwright install chromium --with-deps
+          fi
 
       # ── Prepare service .env files ──────────────────────────────
       - name: Generate JWT keys and service .env files

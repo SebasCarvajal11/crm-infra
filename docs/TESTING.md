@@ -53,6 +53,13 @@ Ejecuta una suite liviana con **Playwright** que abre el frontend en modo headle
 - Simula autenticación con un usuario de prueba.
 - Comprueba la carga fluida del dashboard principal antes de confirmar el cambio de tráfico en despliegues productivos.
 
+### D. Optimización del Pipeline de Integración Continua (`reusable-ci.yml`)
+El flujo corporativo de CI implementa las siguientes directrices de rendimiento y fiabilidad:
+- **Caché Persistente de Binarios**: Binarios pesados como el CLI de Hurl (`7.1.0`) y Chromium de Playwright se almacenan en caché de GitHub Actions, evitando descargas y ejecuciones lentas de `apt-get`/`dpkg` en cada ejecución.
+- **Contenedores de Alta Velocidad en RAM**: Servicios efímeros de base de datos se descargan desde mirrors de alta disponibilidad (`public.ecr.aws`) con directivas optimizadas de memoria (`fsync=off`, `synchronous_commit=off` para PostgreSQL y `--save ""` para Redis).
+- **Aislamiento Estricto de Servicios**: Cada microservicio consume únicamente los contenedores que requiere (evitando levantar servicios ociosos en repositorios con mocks/Testcontainers).
+- **Linting y Calidad Dinámicos**: Detección e invocación automática de `pnpm lint` en microservicios TypeScript.
+
 ---
 
 ## 4. Catálogo de Comandos de Prueba
