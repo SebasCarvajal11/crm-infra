@@ -153,7 +153,13 @@ jobs:
             HURL_VERSION=7.1.0
             curl -sSL -o /tmp/hurl.tar.gz "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl-${HURL_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
             tar -xzf /tmp/hurl.tar.gz -C /tmp
-            mv "/tmp/hurl-${HURL_VERSION}-x86_64-unknown-linux-gnu/hurl" ~/.local/bin/hurl
+            if [ -f "/tmp/hurl-${HURL_VERSION}-x86_64-unknown-linux-gnu/bin/hurl" ]; then
+              mv "/tmp/hurl-${HURL_VERSION}-x86_64-unknown-linux-gnu/bin/hurl" ~/.local/bin/hurl
+            elif [ -f "/tmp/hurl-${HURL_VERSION}-x86_64-unknown-linux-gnu/hurl" ]; then
+              mv "/tmp/hurl-${HURL_VERSION}-x86_64-unknown-linux-gnu/hurl" ~/.local/bin/hurl
+            else
+              find /tmp -name hurl -type f -exec mv {} ~/.local/bin/hurl \;
+            fi
             chmod +x ~/.local/bin/hurl
             rm -rf /tmp/hurl*
           fi
