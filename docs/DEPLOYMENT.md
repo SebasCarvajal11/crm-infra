@@ -56,7 +56,8 @@ Ubicado en `deploy/remote/deploy-component.sh`, es el script maestro invocado po
 6. **Actualización de Registro, Drenado y Poda**:
    - Escribe el nuevo estado en `.active-versions-green`.
    - Detiene de forma ordenada (*graceful drain*) y destruye los contenedores del slot previo.
-   - Ejecuta una poda controlada de la caché de BuildKit (`--keep-storage 5GB`) e imágenes huérfanas para asegurar un uso predecible del almacenamiento en disco.
+   - Ejecuta una poda controlada de la caché de BuildKit (`--keep-storage 1.5GB`), imágenes huérfanas e imágenes inactivas del slot previo con filtro temporal (`until=24h`), manteniendo un suelo de almacenamiento predecible y suficiente margen para compilaciones en disco.
+   - Rotación global de registros Docker configurada a nivel de daemon (`max-size: 20m`, `max-file: 3`) y mantenimiento automático semanal vía `scripts/maintenance-hygiene.sh`.
 
 ---
 

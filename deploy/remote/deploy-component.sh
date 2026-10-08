@@ -729,8 +729,9 @@ destroy_slot() {
 }
 
 prune_build_cache() {
-  echo "Pruning build cache beyond 5GB and dangling images..."
-  docker builder prune -f --keep-storage 5GB >/dev/null 2>&1 || true
+  echo "Pruning build cache beyond 1.5GB and inactive images..."
+  docker builder prune -f --keep-storage 1.5GB >/dev/null 2>&1 || true
+  docker image prune -a -f --filter "until=24h" >/dev/null 2>&1 || true
   docker image prune -f >/dev/null 2>&1 || true
 }
 
