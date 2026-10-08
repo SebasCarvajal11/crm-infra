@@ -16,6 +16,7 @@
     "openapi:check": "node scripts/validate-openapi.mjs",
     "gateway:validate": "node scripts/validate-manifest.mjs",
     "test:unit": "vitest run",
+    "test:env:setup": "node scripts/setup-test-env.mjs",
     "preinstall": "pnpm dlx only-allow pnpm"
   },
   "dependencies": {
