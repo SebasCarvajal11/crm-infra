@@ -15,6 +15,7 @@ out/
 *.tsbuildinfo
 .turbo/
 .vite/
+*.exe
 
 # Environment files
 .env
