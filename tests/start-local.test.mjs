@@ -69,5 +69,24 @@ test("Launcher.cs y setup-desktop-launcher.ps1 configuran -Tunnel por defecto pa
   assert.match(setupContent, /-Tunnel/, "setup-desktop-launcher.ps1 debe incluir -Tunnel");
 });
 
+test("sync-prod-db.ps1 existe y define el procedimiento de sincronizacion segura desde produccion", () => {
+  const syncScriptPath = new URL("../scripts/sync-prod-db.ps1", import.meta.url);
+  assert.ok(existsSync(syncScriptPath), "scripts/sync-prod-db.ps1 debe existir");
+
+  const content = readFileSync(syncScriptPath, "utf-8");
+  assert.match(content, /pg_dump/i, "Debe utilizar pg_dump para extraer datos de produccion");
+  assert.match(content, /schema_auth.*schema_collab/i, "Debe sincronizar esquemas de negocio");
+  assert.match(content, /00-init-service-schemas\.sh/i, "Debe reconciliar permisos locales tras restaurar");
+});
+
+test("start-local.ps1 ejecuta sincronizacion de base de datos de produccion con opcion de omitir", () => {
+  const scriptPath = new URL("../start-local.ps1", import.meta.url);
+  const content = readFileSync(scriptPath, "utf-8");
+
+  assert.match(content, /sync-prod-db|Sync-ProductionDatabase/i, "Debe invocar sincronizacion de base de datos");
+  assert.match(content, /\$SkipDbSync/i, "Debe soportar flag -SkipDbSync para arranques rapidos u offline");
+});
+
+
 
 

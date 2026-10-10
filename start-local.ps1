@@ -11,6 +11,7 @@ param(
     [switch]$Restart,
     [switch]$Status,
     [switch]$Tunnel,
+    [switch]$SkipDbSync,
     [switch]$OpenBrowser,
     [switch]$NoBuild,
     [switch]$NoWait,
@@ -264,6 +265,14 @@ try {
     if (-not $NoBuild) { $composeArgs += "--build" }
     $composeArgs += "--remove-orphans"
     & docker @composeArgs
+
+    if (-not $SkipDbSync) {
+        Update-Progress 45 "Sincronizando base de datos desde produccion..."
+        $syncScript = Join-Path $infraRoot "scripts\sync-prod-db.ps1"
+        if (Test-Path $syncScript) {
+            & $syncScript -Quiet
+        }
+    }
 
     if (-not $NoWait) {
         Wait-ForStackReady
