@@ -13,7 +13,7 @@ namespace CimaCrmLauncher
             
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.FileName = "powershell.exe";
-            psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\" -Interactive";
+            psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\" -Interactive -Tunnel";
             psi.WorkingDirectory = appDir;
             psi.UseShellExecute = true;
 

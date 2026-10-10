@@ -58,4 +58,16 @@ test("start-local.ps1 soporta deteccion de IP en red local (LAN) y apertura de t
   assert.match(content, /Start-Tunnel|cloudflared/i, "Debe soportar levantar el tunel con cloudflared");
 });
 
+test("Launcher.cs y setup-desktop-launcher.ps1 configuran -Tunnel por defecto para arranque con doble clic", () => {
+  const launcherPath = new URL("../Launcher.cs", import.meta.url);
+  const setupPath = new URL("../scripts/setup-desktop-launcher.ps1", import.meta.url);
+  
+  const launcherContent = readFileSync(launcherPath, "utf-8");
+  const setupContent = readFileSync(setupPath, "utf-8");
+
+  assert.match(launcherContent, /-Tunnel/, "Launcher.cs debe incluir -Tunnel");
+  assert.match(setupContent, /-Tunnel/, "setup-desktop-launcher.ps1 debe incluir -Tunnel");
+});
+
+
 
