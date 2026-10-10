@@ -39,3 +39,13 @@ test("start-local.ps1 implementa espera activa de salud antes de declarar exito"
 
   assert.match(content, /Wait-ForHealth|Wait-ForStackReady|health/i, "Debe verificar la salud del stack");
 });
+
+test("start-local.ps1 calcula y muestra porcentaje de progreso en consola y titulo de ventana", () => {
+  const scriptPath = new URL("../start-local.ps1", import.meta.url);
+  const content = readFileSync(scriptPath, "utf-8");
+
+  assert.match(content, /Set-Progress|Update-Progress|Show-Progress/i, "Debe tener funcion dedicada de progreso");
+  assert.match(content, /WindowTitle/i, "Debe actualizar el titulo de la ventana con el % de avance");
+  assert.match(content, /100%/, "Debe alcanzar el 100% al completar el arranque");
+});
+
