@@ -1,15 +1,16 @@
 <#
 .SYNOPSIS
-    Orquestador de levantamiento local de CIMA CRM en Docker con indicador de avance %.
+    Orquestador de levantamiento local de CIMA CRM con soporte de red local y tunel.
 .DESCRIPTION
-    Valida dependencias, inicializa variables de entorno, arranca contenedores,
-    monitorea la salud de los servicios con porcentaje en tiempo real y ofrece utilidades.
+    Arranca contenedores, muestra porcentaje de avance, detecta IP LAN para conexion
+    de dispositivos en la misma red y abre tunel seguro HTTPS bajo demanda.
 #>
 [CmdletBinding()]
 param(
     [switch]$Down,
     [switch]$Restart,
     [switch]$Status,
+    [switch]$Tunnel,
     [switch]$OpenBrowser,
     [switch]$NoBuild,
     [switch]$NoWait,
@@ -59,6 +60,21 @@ $frontendPort = Get-DockerEnvVar "FRONTEND_HOST_PORT" "5173"
 $gatewayPort = Get-DockerEnvVar "GATEWAY_HOST_PORT" "28080"
 $postgresPort = Get-DockerEnvVar "POSTGRES_HOST_PORT" "25432"
 $redisPort = Get-DockerEnvVar "REDIS_HOST_PORT" "26379"
+
+function Get-LanIpAddress {
+    try {
+        $route = Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($route) {
+            $ip = (Get-NetIPAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress
+            if ($ip) { return $ip }
+        }
+    } catch {}
+    $all = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object {
+        $_.InterfaceAlias -notmatch "Loopback|vEthernet|WSL|VirtualBox" -and $_.IPAddress -notmatch "^127\.|^169\.254\."
+    } | Select-Object -ExpandProperty IPAddress -First 1
+    if ($all) { return $all }
+    return "127.0.0.1"
+}
 
 function Test-DockerRunning {
     try {
@@ -129,6 +145,32 @@ function Test-TcpPort {
     }
 }
 
+function Start-Tunnel {
+    param([int]$Port)
+    $cfExe = Join-Path $workspaceRoot ".tools\cloudflared.exe"
+    if (-not (Test-Path $cfExe)) {
+        $toolsDir = Split-Path -Parent $cfExe
+        if (-not (Test-Path $toolsDir)) { New-Item -ItemType Directory -Path $toolsDir | Out-Null }
+        Write-Host "`n[TUNNEL] Descargando cliente de tunel seguro..." -ForegroundColor Cyan
+        Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $cfExe
+    }
+
+    $logFile = Join-Path $env:TEMP "cima_tunnel_$(Get-Random).log"
+    $proc = Start-Process -FilePath $cfExe -ArgumentList "tunnel", "--url", "http://localhost:$Port" -RedirectStandardError $logFile -PassThru -NoNewWindow
+    $tunnelUrl = $null
+    for ($i = 0; $i -lt 15; $i++) {
+        Start-Sleep -Seconds 1
+        if (Test-Path $logFile) {
+            $content = Get-Content $logFile -Raw
+            if ($content -match '(https://[a-zA-Z0-9-]+\.trycloudflare\.com)') {
+                $tunnelUrl = $matches[1]
+                break
+            }
+        }
+    }
+    return @{ Url = $tunnelUrl; Process = $proc }
+}
+
 function Wait-ForStackReady {
     param([int]$MaxSeconds = 90)
     $deadline = (Get-Date).AddSeconds($MaxSeconds)
@@ -170,19 +212,27 @@ function Wait-ForStackReady {
 }
 
 function Show-Summary {
+    param([string]$TunnelUrl)
+    $lanIp = Get-LanIpAddress
     Write-Host ""
     Write-Host "==========================================================" -ForegroundColor Green
-    Write-Host "     CIMA CRM - ECOSISTEMA LOCAL ACTIVO [100%]           " -ForegroundColor Green
+    Write-Host "       CIMA CRM - ACCESO LOCAL Y MULTI-DISPOSITIVO        " -ForegroundColor Green
     Write-Host "==========================================================" -ForegroundColor Green
-    Write-Host "  [UI]      Frontend: http://localhost:$frontendPort" -ForegroundColor White
-    Write-Host "  [API]     Gateway:  http://localhost:$gatewayPort" -ForegroundColor White
-    Write-Host "  [DATA]    Postgres: localhost:$postgresPort" -ForegroundColor White
-    Write-Host "  [CACHE]   Redis:    localhost:$redisPort" -ForegroundColor White
+    Write-Host "  [ESTE EQUIPO]  http://localhost:$frontendPort" -ForegroundColor White
+    Write-Host "  [RED LOCAL]    http://${lanIp}:${frontendPort} (Misma red Wi-Fi)" -ForegroundColor Yellow
+    if ($TunnelUrl) {
+        Write-Host "  [TUNEL HTTPS]  $TunnelUrl" -ForegroundColor Cyan
+        Write-Host "                 (Acceso desde celulares, tablets o remoto)" -ForegroundColor Gray
+    }
+    Write-Host "  [GATEWAY API]  http://localhost:$gatewayPort" -ForegroundColor White
+    Write-Host "  [POSTGRES]     localhost:$postgresPort" -ForegroundColor White
+    Write-Host "  [REDIS]        localhost:$redisPort" -ForegroundColor White
     Write-Host "==========================================================" -ForegroundColor Green
-    Write-Host "Comandos de utilidad:" -ForegroundColor Cyan
-    Write-Host "  .\start-local.ps1 -Status" -ForegroundColor Gray
-    Write-Host "  .\start-local.ps1 -Logs [servicio]" -ForegroundColor Gray
-    Write-Host "  .\start-local.ps1 -Down" -ForegroundColor Gray
+    Write-Host "Para conectar un celular o tablet en tu misma red Wi-Fi:" -ForegroundColor Cyan
+    Write-Host "  Abre en su navegador: http://${lanIp}:${frontendPort}" -ForegroundColor Gray
+    if ($TunnelUrl) {
+        Write-Host "  O utiliza el enlace seguro HTTPS: $TunnelUrl" -ForegroundColor Gray
+    }
     Write-Host ""
 }
 
@@ -221,7 +271,21 @@ try {
         Update-Progress 100 "Contenedores despachados en segundo plano"
     }
 
-    Show-Summary
+    $activeTunnel = $null
+    if ($Tunnel -or $Interactive) {
+        $shouldTunnel = $Tunnel
+        if (-not $shouldTunnel -and $Interactive) {
+            Write-Host ""
+            $ans = Read-Host "Deseas abrir un tunel para acceder desde celulares y otros dispositivos? (s/n)"
+            if ($ans -eq "s" -or $ans -eq "S") { $shouldTunnel = $true }
+        }
+        if ($shouldTunnel) {
+            Write-Host "`n[TUNNEL] Creando tunel HTTPS seguro..." -ForegroundColor Cyan
+            $activeTunnel = Start-Tunnel ([int]$frontendPort)
+        }
+    }
+
+    Show-Summary -TunnelUrl $activeTunnel.Url
 
     if ($OpenBrowser) {
         Start-Process "http://localhost:$frontendPort"
@@ -229,11 +293,14 @@ try {
 
     if ($Interactive) {
         Write-Host ""
-        $openPrompt = Read-Host "Deseas abrir CIMA CRM en tu navegador ahora? (s/n)"
+        $openPrompt = Read-Host "Deseas abrir CIMA CRM en este equipo ahora? (s/n)"
         if ($openPrompt -eq "s" -or $openPrompt -eq "S") {
             Start-Process "http://localhost:$frontendPort"
         }
         Read-Host "`nPresiona Enter para cerrar esta consola..."
+        if ($activeTunnel.Process) {
+            Stop-Process -Id $activeTunnel.Process.Id -Force -ErrorAction SilentlyContinue
+        }
     }
 } catch {
     Write-Host "`n[ERROR CRITICO] $_" -ForegroundColor Red

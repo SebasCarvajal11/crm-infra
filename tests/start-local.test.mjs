@@ -49,3 +49,13 @@ test("start-local.ps1 calcula y muestra porcentaje de progreso en consola y titu
   assert.match(content, /100%/, "Debe alcanzar el 100% al completar el arranque");
 });
 
+test("start-local.ps1 soporta deteccion de IP en red local (LAN) y apertura de tunel", () => {
+  const scriptPath = new URL("../start-local.ps1", import.meta.url);
+  const content = readFileSync(scriptPath, "utf-8");
+
+  assert.match(content, /\$Tunnel/i, "Debe declarar parametro -Tunnel");
+  assert.match(content, /Get-LanIpAddress|Get-NetIPAddress/i, "Debe detectar la IP local de la red LAN");
+  assert.match(content, /Start-Tunnel|cloudflared/i, "Debe soportar levantar el tunel con cloudflared");
+});
+
+
