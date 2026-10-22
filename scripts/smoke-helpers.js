@@ -36,12 +36,24 @@ async function logout(page, context) {
   await page.waitForURL(/\/login/)
 }
 
+async function dismissWelcomeIfPresent(page) {
+  const dismissBtn = page.getByRole('button', { name: 'Explorar por mi cuenta' })
+  try {
+    await dismissBtn.waitFor({ state: 'visible', timeout: 3000 })
+    await dismissBtn.click()
+    await dismissBtn.waitFor({ state: 'hidden', timeout: 5000 })
+  } catch {
+    // Si el diálogo proactivo no aparece en la sesión, continuar de forma transparente.
+  }
+}
+
 async function loginAs(page, email, password, expect) {
   await page.goto('/login')
   await page.getByLabel('Correo').fill(email)
   await page.locator('#password').fill(password)
   await page.getByRole('button', { name: 'Entrar' }).click()
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 })
+  await dismissWelcomeIfPresent(page)
 }
 
 function writeVerificationReport(reportPath, suffix, errors) {
@@ -71,5 +83,6 @@ module.exports = {
   createSmokeContext,
   logout,
   loginAs,
+  dismissWelcomeIfPresent,
   writeVerificationReport,
 }
